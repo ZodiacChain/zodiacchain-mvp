@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+.yarn/
+
+# Build outputs
+dist/
+build/
+out/
+.next/
+coverage/
+.cache/
+
+# Solidity / Ethereum tooling
+artifacts/
+cache/
+typechain/
+typechain-types/
+broadcast/
+coverage.json
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Editors and OS files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

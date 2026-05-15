@@ -13,8 +13,8 @@ The purpose of this repository is to build and validate the technical foundation
 This repository is for MVP implementation only:
 
 - smart contract scaffolding and testnet integration planning;
-- TypeScript domain logic and mock API behavior;
-- frontend demo interface and Fairness Dashboard;
+- Fastify + TypeScript mock API and read layer;
+- React + TypeScript frontend demo and Fairness Dashboard;
 - scripts for local/testnet operations;
 - internal technical notes that support implementation.
 
@@ -28,12 +28,12 @@ The current phase does not include regulated commercial operation, real-money wa
 |---|---|
 | Smart contracts | Solidity |
 | Domain logic | TypeScript |
-| Backend / mock API | TypeScript |
-| Frontend demo | TypeScript |
+| Backend / mock API | Fastify + TypeScript |
+| Frontend demo | React + TypeScript |
 | Target network | Polygon Amoy Testnet |
 | Oracle integrations | Chainlink VRF, Chainlink Automation |
 
-Framework choices will be finalized as implementation issues are opened. The initial repository structure is intentionally lightweight so the team can choose tooling without refactoring early placeholder code.
+The core technology direction is intentionally explicit for reviewer clarity: React + TypeScript for the frontend, Fastify + TypeScript for the backend/read layer, and Solidity for smart contracts. Lower-level tooling choices, such as Vite vs. Next.js or Hardhat vs. Foundry, will be finalized in implementation issues.
 
 ---
 
@@ -41,11 +41,11 @@ Framework choices will be finalized as implementation issues are opened. The ini
 
 ```text
 zodiacchain-mvp/
-|-- backend/          # TypeScript backend or mock API implementation
+|-- backend/          # Fastify + TypeScript mock API and read layer
 |-- contracts/        # Solidity smart contracts and tests
 |-- docs/
 |   `-- internal/     # Internal implementation notes and runbooks
-|-- frontend/         # TypeScript frontend demo and Fairness Dashboard
+|-- frontend/         # React + TypeScript frontend demo and Fairness Dashboard
 |-- scripts/          # Local and testnet helper scripts
 |-- CONTRIBUTING.md
 |-- LICENSE

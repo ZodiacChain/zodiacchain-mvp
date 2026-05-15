@@ -1,6 +1,6 @@
 # Frontend
 
-TypeScript frontend demo and Fairness Dashboard for the ZodiacChain MVP.
+React + TypeScript frontend demo and Fairness Dashboard for the ZodiacChain MVP.
 
 Initial responsibilities:
 
@@ -8,6 +8,7 @@ Initial responsibilities:
 - test entry flow;
 - draw lifecycle visualization;
 - result screen;
-- Fairness Dashboard with verification evidence.
+- Fairness Dashboard with verification evidence;
+- clear testnet-only disclaimers.
 
-The UI must clearly communicate testnet-only scope and avoid implying regulated commercial operation.
+The frontend should make the verification path understandable for reviewers and non-technical users. It must clearly communicate testnet-only scope and avoid implying regulated commercial operation.

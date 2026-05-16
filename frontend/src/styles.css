@@ -183,7 +183,7 @@ button {
 .screen-header h1 {
   margin: 4px 0 0;
   color: var(--ink);
-  font-size: clamp(2rem, 4vw, 3.5rem);
+  font-size: 3rem;
   line-height: 1;
 }
 
@@ -402,32 +402,34 @@ button {
 }
 
 .evidence-table {
-  display: grid;
+  width: 100%;
   overflow: hidden;
   border: 1px solid #dce7e2;
   border-radius: 8px;
+  border-spacing: 0;
+  table-layout: fixed;
 }
 
-.evidence-row {
-  display: grid;
-  grid-template-columns: minmax(120px, 0.6fr) minmax(0, 1.4fr);
-  gap: 14px;
+.evidence-table th,
+.evidence-table td {
   min-height: 52px;
-  align-items: center;
+  padding: 14px;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.evidence-row:not(:last-child) th,
+.evidence-row:not(:last-child) td {
   border-bottom: 1px solid #e7eeeb;
-  padding: 10px 14px;
 }
 
-.evidence-row:last-child {
-  border-bottom: 0;
-}
-
-.evidence-row span {
+.evidence-table th {
+  width: 30%;
   color: var(--muted);
   font-weight: 800;
 }
 
-.evidence-row strong {
+.evidence-table td {
   overflow-wrap: anywhere;
   color: var(--ink);
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, ui-monospace, monospace;
@@ -482,6 +484,10 @@ button {
     flex-direction: column;
   }
 
+  .screen-header h1 {
+    font-size: 2rem;
+  }
+
   .notice {
     align-items: start;
   }
@@ -490,9 +496,22 @@ button {
   .metrics-grid,
   .ticket-preview,
   .timeline,
-  .readiness-list,
-  .evidence-row {
+  .readiness-list {
     grid-template-columns: 1fr;
+  }
+
+  .evidence-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    padding: 10px 14px;
+  }
+
+  .evidence-table th,
+  .evidence-table td {
+    display: block;
+    width: 100%;
+    min-height: 0;
+    padding: 4px 0;
   }
 
   .nav-list {

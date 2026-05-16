@@ -118,6 +118,7 @@ const randomnessByDrawId: Record<string, RandomnessRecord> = {
     callbackTransactionHash: null,
     fulfilledAt: null,
     provider: "Chainlink VRF mock",
+    randomWords: mockRandomWords,
     requestId: "req-demo-2026-05-16-042",
     requestedAt: "2026-05-16T18:10:00.000Z",
     seedDigest: "0x9a420000000000000000000000000000000000000000000000000000000018ef",

@@ -92,10 +92,16 @@ export type DrawEvent = {
   type: DrawEventType;
 };
 
+export type RandomnessWords = {
+  celestial: string;
+  terrestrial: string;
+};
+
 export type RandomnessRecord = {
   callbackTransactionHash: string | null;
   fulfilledAt: string | null;
   provider: "Chainlink VRF mock";
+  randomWords: RandomnessWords;
   requestId: string;
   requestedAt: string;
   seedDigest: string;

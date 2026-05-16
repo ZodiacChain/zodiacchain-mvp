@@ -10,6 +10,7 @@ export type {
   DrawSummary,
   FairnessRecord,
   RandomnessRecord,
+  RandomnessWords,
   TerrestrialResult,
 } from "./domain.js";
 export {

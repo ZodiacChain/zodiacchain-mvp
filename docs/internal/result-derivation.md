@@ -9,6 +9,17 @@ The backend domain helpers accept non-negative random words as `bigint`, decimal
 strings. Decimal and hex strings preserve future Chainlink VRF `uint256` values without relying on
 unsafe JavaScript `number` precision.
 
+API clients should use the `/api/v1/draws/:drawId/randomness` response `randomWords` object as the
+public verification input:
+
+```text
+randomWords.terrestrial -> Terrestrial Result
+randomWords.celestial -> Celestial Result
+```
+
+The legacy `value` field remains as the Celestial random word during the MVP mock API phase, but it
+is not sufficient to reconstruct the complete draw result.
+
 ## Terrestrial Result
 
 The Terrestrial Result is a two-digit value in the inclusive range `00-99`.

@@ -1,0 +1,10 @@
+{
+  "name": "@zodiacchain/backend",
+  "version": "0.1.0",
+  "description": "Fastify and TypeScript mock API workspace for the ZodiacChain MVP.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "name": "@zodiacchain/frontend",
+  "version": "0.1.0",
+  "description": "React and TypeScript frontend demo workspace for the ZodiacChain MVP.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  }
+}

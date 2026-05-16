@@ -121,6 +121,7 @@ function App() {
 
             return (
               <button
+                aria-current={isActive ? "page" : undefined}
                 className="nav-item"
                 data-active={isActive}
                 key={screen.id}
@@ -233,8 +234,8 @@ function TestEntryScreen() {
           <h2>Entry State</h2>
         </div>
         <p className="body-copy">
-          The test entry screen is wired as a static review surface until a mock API issue supplies
-          entry creation and persistence.
+          Entry creation is not connected in this demo state. This screen shows the static review
+          state that later connects to the demo data API.
         </p>
       </div>
     </section>
@@ -319,14 +320,16 @@ function FairnessDashboardScreen() {
           </div>
           <span className="state-tag open">Testnet</span>
         </div>
-        <div className="evidence-table" role="table" aria-label="Verification evidence">
-          {evidenceRows.map((row) => (
-            <div className="evidence-row" role="row" key={row.label}>
-              <span role="cell">{row.label}</span>
-              <strong role="cell">{row.value}</strong>
-            </div>
-          ))}
-        </div>
+        <table className="evidence-table" aria-label="Verification evidence">
+          <tbody>
+            {evidenceRows.map((row) => (
+              <tr className="evidence-row" key={row.label}>
+                <th scope="row">{row.label}</th>
+                <td>{row.value}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
 
       <div className="panel">

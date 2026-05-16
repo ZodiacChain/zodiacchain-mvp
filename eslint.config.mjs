@@ -6,11 +6,17 @@ export default tseslint.config(
     ignores: [
       "node_modules/**",
       "dist/**",
+      "**/dist/**",
       "build/**",
+      "**/build/**",
       "out/**",
+      "**/out/**",
       ".next/**",
+      "**/.next/**",
       "coverage/**",
+      "**/coverage/**",
       ".cache/**",
+      "**/.cache/**",
       "artifacts/**",
       "cache/**",
       "typechain/**",
@@ -20,4 +26,12 @@ export default tseslint.config(
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
+  {
+    files: ["frontend/**/*.{ts,tsx}"],
+    languageOptions: {
+      globals: {
+        document: "readonly",
+      },
+    },
+  },
 );

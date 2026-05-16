@@ -24,13 +24,15 @@ The current phase does not include regulated commercial operation, real-money wa
 
 ## Initial Stack
 
-| Area | Initial direction |
-|---|---|
-| Smart contracts | Solidity |
-| Domain logic | TypeScript |
-| Backend / mock API | Fastify + TypeScript |
-| Frontend demo | React + TypeScript |
-| Target network | Polygon Amoy Testnet |
+| Area                | Initial direction                   |
+| ------------------- | ----------------------------------- |
+| Smart contracts     | Solidity                            |
+| Domain logic        | TypeScript                          |
+| Backend / mock API  | Fastify + TypeScript                |
+| Frontend demo       | React + TypeScript                  |
+| Package workspace   | npm workspaces                      |
+| TypeScript config   | Shared root config                  |
+| Target network      | Polygon Amoy Testnet                |
 | Oracle integrations | Chainlink VRF, Chainlink Automation |
 
 The core technology direction is intentionally explicit for reviewer clarity: React + TypeScript for the frontend, Fastify + TypeScript for the backend/read layer, and Solidity for smart contracts. Lower-level tooling choices, such as Vite vs. Next.js or Hardhat vs. Foundry, will be finalized in implementation issues.
@@ -47,11 +49,58 @@ zodiacchain-mvp/
 |   `-- internal/     # Internal implementation notes and runbooks
 |-- frontend/         # React + TypeScript frontend demo and Fairness Dashboard
 |-- scripts/          # Local and testnet helper scripts
+|-- eslint.config.mjs
+|-- package.json
+|-- package-lock.json
+|-- tsconfig.base.json
 |-- CONTRIBUTING.md
 |-- LICENSE
 |-- README.md
 `-- .gitignore
 ```
+
+---
+
+## Local Development
+
+Prerequisites:
+
+- Node.js 22.14.0 or newer;
+- npm 10.9.2 or newer.
+
+Install dependencies from the repository root:
+
+```bash
+npm install
+```
+
+If PowerShell blocks the `npm` shim because script execution is disabled, run the same commands with `npm.cmd`:
+
+```bash
+npm.cmd install
+```
+
+Common validation commands:
+
+```bash
+npm run check
+npm run format:check
+npm run lint
+npm run typecheck
+```
+
+Workspace-specific TypeScript checks:
+
+```bash
+npm run typecheck -w @zodiacchain/frontend
+npm run typecheck -w @zodiacchain/backend
+```
+
+Use `npm run format` to apply the shared Prettier configuration.
+
+The active npm workspaces are `frontend` and `backend`. Solidity tooling remains intentionally separate until a contracts implementation issue chooses the contract toolchain.
+
+Keep environment secrets local. Private keys, mnemonics, API keys, RPC credentials, and deployment secrets should stay in `.env` files, while safe examples may be committed as `.env.example`.
 
 ---
 

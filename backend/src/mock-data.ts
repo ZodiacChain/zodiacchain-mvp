@@ -5,9 +5,17 @@ import type {
   FairnessRecord,
   RandomnessRecord,
 } from "./domain.js";
+import { deriveDrawResult } from "./result-derivation.js";
+
+const mockRandomWords = {
+  celestial: "0x10",
+  terrestrial: "0x04",
+};
+
+const demoResult = deriveDrawResult(mockRandomWords);
 
 const activeDraw: DrawDetail = {
-  celestialResult: "Virgo Ascendant",
+  celestialResult: demoResult.celestialResult,
   contractAddress: "0x0000000000000000000000000000000000000042",
   demoOnly: true,
   entriesCount: 128,
@@ -27,6 +35,8 @@ const activeDraw: DrawDetail = {
       label: "Result digest",
       value: "0xf3a80000000000000000000000000000000000000000000000000000000022c1",
     },
+    { label: "Terrestrial word", value: mockRandomWords.terrestrial },
+    { label: "Celestial word", value: mockRandomWords.celestial },
   ],
   id: "AMOY-DEMO-042",
   lifecycle: [
@@ -70,7 +80,7 @@ const activeDraw: DrawDetail = {
   maxEntries: 500,
   network: "Polygon Amoy",
   status: "entry_open",
-  terrestrialResult: [4, 11, 16, 23, 35],
+  terrestrialResult: demoResult.terrestrialResult,
   title: "Reviewer test draw",
 };
 
@@ -108,10 +118,11 @@ const randomnessByDrawId: Record<string, RandomnessRecord> = {
     callbackTransactionHash: null,
     fulfilledAt: null,
     provider: "Chainlink VRF mock",
+    randomWords: mockRandomWords,
     requestId: "req-demo-2026-05-16-042",
     requestedAt: "2026-05-16T18:10:00.000Z",
     seedDigest: "0x9a420000000000000000000000000000000000000000000000000000000018ef",
-    value: null,
+    value: mockRandomWords.celestial,
   },
 };
 

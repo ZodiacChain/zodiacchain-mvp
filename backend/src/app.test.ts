@@ -4,6 +4,8 @@ import test from "node:test";
 import type { FastifyInstance } from "fastify";
 
 import { buildApp } from "./app.js";
+import type { CelestialResult, RandomnessWords, TerrestrialResult } from "./domain.js";
+import { deriveDrawResult } from "./result-derivation.js";
 
 async function withApp(assertions: (app: FastifyInstance) => Promise<void>): Promise<void> {
   const app = await buildApp();
@@ -48,6 +50,10 @@ test("draw subresources expose events, randomness, and fairness records", async 
       method: "GET",
       url: "/api/v1/draws/AMOY-DEMO-042/randomness",
     });
+    const draw = await app.inject({
+      method: "GET",
+      url: "/api/v1/draws/AMOY-DEMO-042",
+    });
     const fairness = await app.inject({
       method: "GET",
       url: "/api/v1/draws/AMOY-DEMO-042/fairness",
@@ -55,12 +61,30 @@ test("draw subresources expose events, randomness, and fairness records", async 
 
     assert.equal(events.statusCode, 200);
     assert.equal(randomness.statusCode, 200);
+    assert.equal(draw.statusCode, 200);
     assert.equal(fairness.statusCode, 200);
     assert.equal(events.json<{ data: unknown[] }>().data.length > 0, true);
-    assert.equal(
-      randomness.json<{ data: { requestId: string } }>().data.requestId,
-      "req-demo-2026-05-16-042",
-    );
+    const randomnessBody = randomness.json<{
+      data: {
+        randomWords: RandomnessWords;
+        requestId: string;
+        value: string;
+      };
+    }>();
+    const drawBody = draw.json<{
+      data: {
+        celestialResult: CelestialResult;
+        terrestrialResult: TerrestrialResult;
+      };
+    }>();
+    const reconstructedResult = deriveDrawResult(randomnessBody.data.randomWords);
+
+    assert.equal(randomnessBody.data.requestId, "req-demo-2026-05-16-042");
+    assert.equal(randomnessBody.data.value, "0x10");
+    assert.equal(randomnessBody.data.randomWords.celestial, "0x10");
+    assert.equal(randomnessBody.data.randomWords.terrestrial, "0x04");
+    assert.deepEqual(reconstructedResult.celestialResult, drawBody.data.celestialResult);
+    assert.deepEqual(reconstructedResult.terrestrialResult, drawBody.data.terrestrialResult);
     assert.equal(fairness.json<{ data: { checks: unknown[] } }>().data.checks.length > 0, true);
   });
 });

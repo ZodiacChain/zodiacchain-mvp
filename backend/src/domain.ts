@@ -35,11 +35,43 @@ export type DrawSummary = {
   title: string;
 };
 
+export type TerrestrialResult = {
+  animalId: number;
+  displayValue: string;
+  value: number;
+};
+
+export type CelestialAnimalName =
+  | "Rat"
+  | "Ox"
+  | "Tiger"
+  | "Rabbit"
+  | "Dragon"
+  | "Snake"
+  | "Horse"
+  | "Goat"
+  | "Monkey"
+  | "Rooster"
+  | "Dog"
+  | "Pig";
+
+export type CelestialElementName = "Wood" | "Fire" | "Earth" | "Metal" | "Water";
+
+export type CelestialResult = {
+  animalId: number;
+  animalName: CelestialAnimalName;
+  displayValue: string;
+  elementId: number;
+  elementName: CelestialElementName;
+  label: string;
+  value: number;
+};
+
 export type DrawDetail = DrawSummary & {
-  celestialResult: string | null;
+  celestialResult: CelestialResult | null;
   evidence: EvidenceItem[];
   lifecycle: DrawLifecycleStep[];
-  terrestrialResult: number[] | null;
+  terrestrialResult: TerrestrialResult | null;
 };
 
 export type DrawEventType =
@@ -60,10 +92,16 @@ export type DrawEvent = {
   type: DrawEventType;
 };
 
+export type RandomnessWords = {
+  celestial: string;
+  terrestrial: string;
+};
+
 export type RandomnessRecord = {
   callbackTransactionHash: string | null;
   fulfilledAt: string | null;
   provider: "Chainlink VRF mock";
+  randomWords: RandomnessWords;
   requestId: string;
   requestedAt: string;
   seedDigest: string;

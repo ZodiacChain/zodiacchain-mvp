@@ -92,6 +92,33 @@ export type DrawEvent = {
   type: DrawEventType;
 };
 
+export type TestEntryFixture = {
+  accepted: boolean;
+  demoOnly: true;
+  drawId: string;
+  entryHash: string;
+  entryId: string;
+  entriesCountAfterPlacement: number;
+  label: string;
+  network: "Polygon Amoy";
+  placedAt: string;
+  selectedNumbers: string[];
+  transactionHash: string | null;
+  walletAddress: string;
+  zodiacSign: string;
+};
+
+export type DrawClosingState = {
+  closedAt: string;
+  closedBy: "Chainlink Automation mock";
+  demoOnly: true;
+  drawId: string;
+  entriesCount: number;
+  entryRoot: string;
+  nextStatus: DrawStatus;
+  status: "entry_locked";
+};
+
 export type RandomnessWords = {
   celestial: string;
   terrestrial: string;
@@ -108,6 +135,18 @@ export type RandomnessRecord = {
   value: string | null;
 };
 
+export type ResultDerivationRecord = {
+  celestialResult: CelestialResult;
+  derivedAt: string;
+  demoOnly: true;
+  drawId: string;
+  randomWords: RandomnessWords;
+  requestId: string;
+  resultDigest: string;
+  source: "mock-result-derivation";
+  terrestrialResult: TerrestrialResult;
+};
+
 export type FairnessCheck = {
   detail: string;
   label: string;
@@ -121,6 +160,16 @@ export type FairnessRecord = {
   publicNotes: string;
   resultDigest: string;
   verificationUrl: string | null;
+};
+
+export type DrawLifecycleRecord = {
+  currentStatus: "published";
+  demoOnly: true;
+  drawId: string;
+  evidence: EvidenceItem[];
+  events: DrawEvent[];
+  requestId: string;
+  steps: DrawLifecycleStep[];
 };
 
 export type ApiError = {

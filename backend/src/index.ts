@@ -4,14 +4,18 @@ export type {
   CelestialAnimalName,
   CelestialElementName,
   CelestialResult,
+  DrawClosingState,
   DrawDetail,
   DrawEvent,
+  DrawLifecycleRecord,
   DrawStatus,
   DrawSummary,
   FairnessRecord,
   RandomnessRecord,
   RandomnessWords,
+  ResultDerivationRecord,
   TerrestrialResult,
+  TestEntryFixture,
 } from "./domain.js";
 export {
   CELESTIAL_ANIMALS,

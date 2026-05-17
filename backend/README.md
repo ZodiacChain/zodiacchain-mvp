@@ -42,18 +42,22 @@ npm test -w @zodiacchain/backend
 
 ## Endpoints
 
-| Method | Path                               | Purpose                         |
-| ------ | ---------------------------------- | ------------------------------- |
-| GET    | `/health`                          | Service health check            |
-| GET    | `/api/v1/draws`                    | List draw summaries             |
-| GET    | `/api/v1/draws/active`             | Return the active reviewer draw |
-| GET    | `/api/v1/draws/:drawId`            | Return draw details             |
-| GET    | `/api/v1/draws/:drawId/events`     | Return mock event history       |
-| GET    | `/api/v1/draws/:drawId/randomness` | Return mock randomness data     |
-| GET    | `/api/v1/draws/:drawId/fairness`   | Return fairness dashboard data  |
+| Method | Path                                      | Purpose                                  |
+| ------ | ----------------------------------------- | ---------------------------------------- |
+| GET    | `/health`                                 | Service health check                     |
+| GET    | `/api/v1/draws`                           | List draw summaries                      |
+| GET    | `/api/v1/draws/active`                    | Return the active reviewer draw          |
+| GET    | `/api/v1/draws/:drawId`                   | Return draw details                      |
+| GET    | `/api/v1/draws/:drawId/test-entry`        | Return mock test entry fixture           |
+| GET    | `/api/v1/draws/:drawId/closing-state`     | Return mock draw closing state           |
+| GET    | `/api/v1/draws/:drawId/lifecycle`         | Return complete mock lifecycle           |
+| GET    | `/api/v1/draws/:drawId/events`            | Return mock event history                |
+| GET    | `/api/v1/draws/:drawId/randomness`        | Return mock request and fulfillment data |
+| GET    | `/api/v1/draws/:drawId/result-derivation` | Return mock result derivation data       |
+| GET    | `/api/v1/draws/:drawId/fairness`          | Return fairness dashboard data           |
 
 Unknown draw IDs return a `404` response with a stable `DRAW_NOT_FOUND` error payload.
 
 ## Mock Data
 
-The initial data set uses `AMOY-DEMO-042`, a safe Polygon Amoy testnet placeholder aligned with the frontend demo. It contains only public mock values for draw state, lifecycle, events, randomness references, and fairness checks.
+The initial data set uses `AMOY-DEMO-042`, a safe Polygon Amoy testnet placeholder aligned with the frontend demo. It contains only public mock values for draw state, test entry placement, closing state, lifecycle events, randomness request and fulfillment, deterministic result derivation, and fairness checks.

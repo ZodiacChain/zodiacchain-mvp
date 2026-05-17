@@ -4,7 +4,16 @@ import test from "node:test";
 import type { FastifyInstance } from "fastify";
 
 import { buildApp } from "./app.js";
-import type { CelestialResult, RandomnessWords, TerrestrialResult } from "./domain.js";
+import type {
+  CelestialResult,
+  DrawClosingState,
+  DrawEvent,
+  DrawLifecycleRecord,
+  RandomnessRecord,
+  ResultDerivationRecord,
+  TerrestrialResult,
+  TestEntryFixture,
+} from "./domain.js";
 import { deriveDrawResult } from "./result-derivation.js";
 
 async function withApp(assertions: (app: FastifyInstance) => Promise<void>): Promise<void> {
@@ -63,14 +72,18 @@ test("draw subresources expose events, randomness, and fairness records", async 
     assert.equal(randomness.statusCode, 200);
     assert.equal(draw.statusCode, 200);
     assert.equal(fairness.statusCode, 200);
-    assert.equal(events.json<{ data: unknown[] }>().data.length > 0, true);
-    const randomnessBody = randomness.json<{
-      data: {
-        randomWords: RandomnessWords;
-        requestId: string;
-        value: string;
-      };
-    }>();
+    assert.deepEqual(
+      events.json<{ data: DrawEvent[] }>().data.map((event) => event.type),
+      [
+        "draw.opened",
+        "entries.locked",
+        "randomness.requested",
+        "randomness.fulfilled",
+        "results.derived",
+        "evidence.published",
+      ],
+    );
+    const randomnessBody = randomness.json<{ data: RandomnessRecord }>();
     const drawBody = draw.json<{
       data: {
         celestialResult: CelestialResult;
@@ -83,19 +96,89 @@ test("draw subresources expose events, randomness, and fairness records", async 
     assert.equal(randomnessBody.data.value, "0x10");
     assert.equal(randomnessBody.data.randomWords.celestial, "0x10");
     assert.equal(randomnessBody.data.randomWords.terrestrial, "0x04");
+    assert.equal(randomnessBody.data.fulfilledAt, "2026-05-16T18:12:00.000Z");
+    assert.equal(
+      randomnessBody.data.callbackTransactionHash,
+      "0x0000000000000000000000000000000000000000000000000000000000042012",
+    );
     assert.deepEqual(reconstructedResult.celestialResult, drawBody.data.celestialResult);
     assert.deepEqual(reconstructedResult.terrestrialResult, drawBody.data.terrestrialResult);
     assert.equal(fairness.json<{ data: { checks: unknown[] } }>().data.checks.length > 0, true);
   });
 });
 
+test("draw lifecycle fixtures expose test entry, closing state, lifecycle, and derivation", async () => {
+  await withApp(async (app) => {
+    const testEntry = await app.inject({
+      method: "GET",
+      url: "/api/v1/draws/AMOY-DEMO-042/test-entry",
+    });
+    const closingState = await app.inject({
+      method: "GET",
+      url: "/api/v1/draws/AMOY-DEMO-042/closing-state",
+    });
+    const lifecycle = await app.inject({
+      method: "GET",
+      url: "/api/v1/draws/AMOY-DEMO-042/lifecycle",
+    });
+    const derivation = await app.inject({
+      method: "GET",
+      url: "/api/v1/draws/AMOY-DEMO-042/result-derivation",
+    });
+
+    assert.equal(testEntry.statusCode, 200);
+    assert.equal(closingState.statusCode, 200);
+    assert.equal(lifecycle.statusCode, 200);
+    assert.equal(derivation.statusCode, 200);
+
+    const testEntryBody = testEntry.json<{ data: TestEntryFixture }>();
+    const closingStateBody = closingState.json<{ data: DrawClosingState }>();
+    const lifecycleBody = lifecycle.json<{ data: DrawLifecycleRecord }>();
+    const derivationBody = derivation.json<{ data: ResultDerivationRecord }>();
+
+    assert.equal(testEntryBody.data.drawId, "AMOY-DEMO-042");
+    assert.equal(testEntryBody.data.demoOnly, true);
+    assert.equal(testEntryBody.data.accepted, true);
+    assert.deepEqual(testEntryBody.data.selectedNumbers, ["04", "11", "16", "23", "35"]);
+    assert.equal(closingStateBody.data.status, "entry_locked");
+    assert.equal(closingStateBody.data.nextStatus, "randomness_requested");
+    assert.equal(
+      closingStateBody.data.entryRoot,
+      "0x7c1e00000000000000000000000000000000000000000000000000000000a90d",
+    );
+    assert.equal(lifecycleBody.data.requestId, "req-demo-2026-05-16-042");
+    assert.equal(lifecycleBody.data.currentStatus, "published");
+    assert.equal(
+      lifecycleBody.data.steps.every((step) => step.status === "complete"),
+      true,
+    );
+    assert.equal(derivationBody.data.requestId, "req-demo-2026-05-16-042");
+    assert.equal(derivationBody.data.source, "mock-result-derivation");
+    assert.equal(derivationBody.data.terrestrialResult.displayValue, "04");
+    assert.equal(derivationBody.data.celestialResult.label, "Dragon / Fire");
+  });
+});
+
 test("draw endpoints return a consistent 404 payload for unknown draw ids", async () => {
   await withApp(async (app) => {
-    const response = await app.inject({ method: "GET", url: "/api/v1/draws/UNKNOWN" });
-    const body = response.json<{ error: { code: string; drawId: string } }>();
+    const urls = [
+      "/api/v1/draws/UNKNOWN",
+      "/api/v1/draws/UNKNOWN/test-entry",
+      "/api/v1/draws/UNKNOWN/closing-state",
+      "/api/v1/draws/UNKNOWN/lifecycle",
+      "/api/v1/draws/UNKNOWN/events",
+      "/api/v1/draws/UNKNOWN/randomness",
+      "/api/v1/draws/UNKNOWN/result-derivation",
+      "/api/v1/draws/UNKNOWN/fairness",
+    ];
 
-    assert.equal(response.statusCode, 404);
-    assert.equal(body.error.code, "DRAW_NOT_FOUND");
-    assert.equal(body.error.drawId, "UNKNOWN");
+    for (const url of urls) {
+      const response = await app.inject({ method: "GET", url });
+      const body = response.json<{ error: { code: string; drawId: string } }>();
+
+      assert.equal(response.statusCode, 404, url);
+      assert.equal(body.error.code, "DRAW_NOT_FOUND", url);
+      assert.equal(body.error.drawId, "UNKNOWN", url);
+    }
   });
 });

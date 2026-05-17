@@ -4,8 +4,12 @@ import type { ApiError } from "../domain.js";
 import {
   findDrawById,
   getActiveDraw,
+  getDrawClosingState,
   getDrawFairness,
+  getDrawLifecycle,
   getDrawRandomness,
+  getDrawResultDerivation,
+  getDrawTestEntry,
   listDrawEvents,
   listDrawSummaries,
 } from "../mock-data.js";
@@ -45,6 +49,36 @@ export const drawRoutes: FastifyPluginAsync = async (fastify) => {
     return { data: draw };
   });
 
+  fastify.get<{ Params: DrawParams }>("/draws/:drawId/test-entry", async (request, reply) => {
+    const draw = findDrawById(request.params.drawId);
+
+    if (!draw) {
+      return sendDrawNotFound(reply, request.params.drawId);
+    }
+
+    return { data: getDrawTestEntry(draw.id) ?? null };
+  });
+
+  fastify.get<{ Params: DrawParams }>("/draws/:drawId/closing-state", async (request, reply) => {
+    const draw = findDrawById(request.params.drawId);
+
+    if (!draw) {
+      return sendDrawNotFound(reply, request.params.drawId);
+    }
+
+    return { data: getDrawClosingState(draw.id) ?? null };
+  });
+
+  fastify.get<{ Params: DrawParams }>("/draws/:drawId/lifecycle", async (request, reply) => {
+    const draw = findDrawById(request.params.drawId);
+
+    if (!draw) {
+      return sendDrawNotFound(reply, request.params.drawId);
+    }
+
+    return { data: getDrawLifecycle(draw.id) ?? null };
+  });
+
   fastify.get<{ Params: DrawParams }>("/draws/:drawId/events", async (request, reply) => {
     const draw = findDrawById(request.params.drawId);
 
@@ -64,6 +98,19 @@ export const drawRoutes: FastifyPluginAsync = async (fastify) => {
 
     return { data: getDrawRandomness(draw.id) ?? null };
   });
+
+  fastify.get<{ Params: DrawParams }>(
+    "/draws/:drawId/result-derivation",
+    async (request, reply) => {
+      const draw = findDrawById(request.params.drawId);
+
+      if (!draw) {
+        return sendDrawNotFound(reply, request.params.drawId);
+      }
+
+      return { data: getDrawResultDerivation(draw.id) ?? null };
+    },
+  );
 
   fastify.get<{ Params: DrawParams }>("/draws/:drawId/fairness", async (request, reply) => {
     const draw = findDrawById(request.params.drawId);

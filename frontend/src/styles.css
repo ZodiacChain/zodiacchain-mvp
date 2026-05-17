@@ -721,9 +721,245 @@ code {
   color: var(--accent);
 }
 
+.fairness-dashboard {
+  align-items: start;
+}
+
+.fairness-hero-panel {
+  background: linear-gradient(135deg, #ffffff 0%, #f6fbf9 54%, #fff8ee 100%);
+}
+
+.wide-copy {
+  max-width: 920px;
+}
+
+.fairness-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.fairness-overview-grid > div,
+.walkthrough-step,
+.replacement-stack > div {
+  display: grid;
+  min-width: 0;
+  border: 1px solid #dce7e2;
+  border-radius: 8px;
+  background: #fbfdfc;
+}
+
+.fairness-overview-grid > div {
+  gap: 8px;
+  min-height: 104px;
+  align-content: center;
+  padding: 14px;
+}
+
+.fairness-overview-grid span,
+.fairness-path-step span,
+.explorer-row span,
+.walkthrough-step > span,
+.replacement-stack span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.fairness-overview-grid strong,
+.fairness-path-step strong,
+.explorer-row strong,
+.walkthrough-step strong,
+.replacement-stack strong,
+.summary-row strong {
+  overflow-wrap: anywhere;
+  color: var(--ink);
+}
+
+.inline-action {
+  width: fit-content;
+  margin-top: 18px;
+}
+
+.fairness-progress {
+  margin: 0 0 18px;
+}
+
+.fairness-path {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fairness-path-step {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  min-height: 272px;
+  align-content: start;
+  border: 1px solid #dce7e2;
+  border-radius: 8px;
+  background: #fbfdfc;
+  padding: 14px;
+}
+
+.fairness-path-step[data-state="complete"] {
+  border-color: #94c9a8;
+  background: #f5fbf7;
+}
+
+.fairness-path-step[data-state="active"] {
+  border-color: #8fb1db;
+  box-shadow: inset 0 0 0 2px #dbe8f8;
+}
+
+.fairness-path-step[data-state="queued"] {
+  color: #6f7c76;
+  background: #f6f8f7;
+}
+
+.path-icon {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border: 1px solid #b7d9d1;
+  border-radius: 8px;
+  background: #eaf6f2;
+  color: var(--accent-dark);
+}
+
+.fairness-path-step[data-state="active"] .path-icon {
+  border-color: #b5cbea;
+  background: #edf5ff;
+  color: var(--blue);
+}
+
+.fairness-path-step p,
+.walkthrough-step p,
+.summary-row p {
+  margin: 6px 0 0;
+  color: #48534e;
+  font-size: 0.92rem;
+}
+
+.fairness-path-step code,
+.explorer-row code,
+.walkthrough-step code {
+  display: block;
+  margin-top: 10px;
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font-size: 0.82rem;
+}
+
+.fairness-path-step small {
+  display: block;
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.evidence-facts {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.explorer-list,
+.walkthrough-list,
+.summary-list,
+.replacement-stack {
+  display: grid;
+  gap: 12px;
+}
+
+.explorer-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  min-width: 0;
+  border-bottom: 1px solid #e7eeeb;
+  padding-bottom: 12px;
+}
+
+.explorer-row:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.placeholder-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  border: 1px dashed #b7c8c2;
+  border-radius: 8px;
+  color: var(--accent-dark);
+  padding: 0 10px;
+  white-space: nowrap;
+}
+
+.walkthrough-list {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.walkthrough-step {
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  min-height: 176px;
+  align-content: start;
+  padding: 14px;
+}
+
+.walkthrough-step > span {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border-radius: 50%;
+  background: #e8f4f0;
+  color: var(--accent-dark);
+}
+
+.summary-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+}
+
+.summary-row svg {
+  margin-top: 2px;
+  color: var(--accent);
+}
+
+.replacement-stack > div {
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 4px 10px;
+  align-items: center;
+  padding: 14px;
+}
+
+.replacement-stack svg {
+  grid-row: span 2;
+  color: var(--accent-dark);
+}
+
 @media (max-width: 1180px) {
-  .derivation-grid {
+  .derivation-grid,
+  .fairness-overview-grid,
+  .walkthrough-list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .fairness-path {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
@@ -752,6 +988,10 @@ code {
 
   .event-row {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .fairness-path {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -786,7 +1026,12 @@ code {
   .timeline,
   .readiness-list,
   .derivation-grid,
-  .evidence-strip {
+  .evidence-strip,
+  .fairness-overview-grid,
+  .fairness-path,
+  .evidence-facts,
+  .explorer-row,
+  .walkthrough-list {
     grid-template-columns: 1fr;
   }
 

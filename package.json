@@ -11,7 +11,8 @@
   },
   "workspaces": [
     "frontend",
-    "backend"
+    "backend",
+    "contracts"
   ],
   "scripts": {
     "lint": "eslint .",

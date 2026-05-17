@@ -6,15 +6,22 @@ import {
   ChartNetwork,
   CheckCircle2,
   CircleDot,
+  Database,
+  ExternalLink,
+  Fingerprint,
   FileText,
   FlaskConical,
   Gauge,
+  GitBranch,
   Hash,
+  KeyRound,
+  Link2,
   ListChecks,
   LockKeyhole,
   Network,
   Play,
   RotateCcw,
+  Route,
   ShieldCheck,
   TicketCheck,
   type LucideIcon,
@@ -215,6 +222,155 @@ const evidenceRows = [
   { label: "VRF request", value: randomness.requestId },
   { label: "Callback transaction", value: randomness.callbackTransactionHash },
   { label: "Result digest", value: demoDraw.resultDigest },
+];
+
+const fairnessEvidencePath = [
+  {
+    detail: "Draw metadata and entry window are visible before any randomness is requested.",
+    evidenceLabel: "Draw contract",
+    evidenceValue: demoDraw.contractAddress,
+    icon: Activity,
+    stageId: "entry-open",
+    title: "Draw opened",
+  },
+  {
+    detail: "Reviewer sample entry creates the accepted hash that becomes part of the entry root.",
+    evidenceLabel: "Entry hash",
+    evidenceValue: testEntry.entryHash,
+    icon: TicketCheck,
+    stageId: "test-entry-placed",
+    title: "Test entry accepted",
+  },
+  {
+    detail: "Accepted entries are frozen into a deterministic root before the request event.",
+    evidenceLabel: "Entry root",
+    evidenceValue: demoDraw.entryRoot,
+    icon: LockKeyhole,
+    stageId: "entries-locked",
+    title: "Entries locked",
+  },
+  {
+    detail: "The randomness request reference becomes the anchor for the future VRF transaction.",
+    evidenceLabel: "Request ID",
+    evidenceValue: randomness.requestId,
+    icon: KeyRound,
+    stageId: "randomness-requested",
+    title: "Randomness requested",
+  },
+  {
+    detail: "Fulfillment captures callback transaction and the mock random words used by the demo.",
+    evidenceLabel: "Callback transaction",
+    evidenceValue: randomness.callbackTransactionHash,
+    icon: Fingerprint,
+    stageId: "randomness-fulfilled",
+    title: "Randomness fulfilled",
+  },
+  {
+    detail: "Mock random words are mapped through the deterministic derivation rules.",
+    evidenceLabel: "Derived output",
+    evidenceValue: `${demoDraw.terrestrialResult} / ${demoDraw.celestialResult}`,
+    icon: ListChecks,
+    stageId: "results-derived",
+    title: "Results derived",
+  },
+  {
+    detail:
+      "The published digest ties draw ID, entry root, request reference, and results together.",
+    evidenceLabel: "Result digest",
+    evidenceValue: demoDraw.resultDigest,
+    icon: ShieldCheck,
+    stageId: "evidence-published",
+    title: "Evidence published",
+  },
+] satisfies Array<{
+  detail: string;
+  evidenceLabel: string;
+  evidenceValue: string;
+  icon: LucideIcon;
+  stageId: LifecycleStageId;
+  title: string;
+}>;
+
+const randomnessReferences = [
+  { label: "Provider", value: randomness.provider },
+  { label: "Request ID", value: randomness.requestId },
+  { label: "Requested at", value: randomness.requestedAt },
+  { label: "Fulfilled at", value: randomness.fulfilledAt },
+  { label: "Callback transaction", value: randomness.callbackTransactionHash },
+  { label: "Seed digest", value: demoDraw.seedDigest },
+  { label: "Terrestrial word", value: randomness.words.terrestrial },
+  { label: "Celestial word", value: randomness.words.celestial },
+];
+
+const derivationWalkthrough = [
+  {
+    label: "Freeze accepted entries",
+    result: demoDraw.entryRoot,
+    step: "01",
+    working: "entryRoot = hash(sorted accepted mock entries)",
+  },
+  {
+    label: "Bind request to seed",
+    result: `${randomness.requestId} + ${demoDraw.seedDigest}`,
+    step: "02",
+    working: "seed = request reference + fulfilled random words",
+  },
+  {
+    label: "Map terrestrial output",
+    result: demoDraw.terrestrialResult,
+    step: "03",
+    working: `${randomness.words.terrestrial} maps to ${demoDraw.terrestrialResult}`,
+  },
+  {
+    label: "Map celestial output",
+    result: demoDraw.celestialResult,
+    step: "04",
+    working: `${randomness.words.celestial} maps to ${demoDraw.celestialResult}`,
+  },
+  {
+    label: "Publish digest",
+    result: demoDraw.resultDigest,
+    step: "05",
+    working: "digest = hash(drawId + entryRoot + requestId + derived results)",
+  },
+];
+
+const explorerPlaceholders = [
+  {
+    label: "Draw contract",
+    target: demoDraw.contractAddress,
+    type: "Polygon Amoy address",
+  },
+  {
+    label: "Request transaction",
+    target: "0x0000000000000000000000000000000000000000000000000000000000042006",
+    type: "Polygon Amoy transaction",
+  },
+  {
+    label: "Callback transaction",
+    target: randomness.callbackTransactionHash,
+    type: "Polygon Amoy transaction",
+  },
+  {
+    label: "Published evidence",
+    target: "evt-demo-042-evidence-published",
+    type: "Future explorer event anchor",
+  },
+];
+
+const protectionSummary = [
+  {
+    detail: "Entry root is recorded before randomness can influence the accepted entry set.",
+    label: "Pre-request entry lock",
+  },
+  {
+    detail: "Request ID and callback transaction are displayed as separate evidence points.",
+    label: "Request and fulfillment split",
+  },
+  {
+    detail: "Result digest can be recomputed from public mock inputs during the demo.",
+    label: "Deterministic recomputation",
+  },
 ];
 
 const screenComponents: Record<ScreenId, ScreenComponent> = {
@@ -635,20 +791,212 @@ function ResultsScreen({ isStageVisible }: ScreenProps) {
   );
 }
 
-function FairnessDashboardScreen({ isStageVisible }: ScreenProps) {
+function FairnessDashboardScreen({
+  currentStage,
+  currentStageIndex,
+  isStageVisible,
+  onStageSelect,
+}: ScreenProps) {
   const evidenceVisible = isStageVisible("evidence-published");
+  const publishedStageIndex = lifecycleStages.findIndex(
+    (stage) => stage.id === "evidence-published",
+  );
+  const progressPercent = ((currentStageIndex + 1) / lifecycleStages.length) * 100;
 
   return (
-    <section className="screen-grid">
-      <div className="panel wide">
+    <section className="screen-grid fairness-dashboard">
+      <div className="panel wide fairness-hero-panel">
         <div className="panel-heading">
           <div>
-            <p>Evidence</p>
-            <h2>Reviewer verification</h2>
+            <p>Public verification</p>
+            <h2>Fairness evidence path</h2>
           </div>
           <span className={evidenceVisible ? "state-tag open" : "state-tag muted"}>
             {evidenceVisible ? "Published" : "Pending"}
           </span>
+        </div>
+        <p className="body-copy wide-copy">
+          Fairness is verified by following the draw from an immutable entry snapshot, through the
+          randomness request and fulfillment, into a deterministic result digest. These mock values
+          are shaped like the future testnet evidence so the demo can swap sources without changing
+          the reviewer workflow.
+        </p>
+        <div className="fairness-overview-grid">
+          <div>
+            <span>Draw ID</span>
+            <strong>{demoDraw.drawId}</strong>
+          </div>
+          <div>
+            <span>Lifecycle state</span>
+            <strong>{currentStage.eventName}</strong>
+          </div>
+          <div>
+            <span>Evidence progress</span>
+            <strong>
+              {currentStageIndex + 1}/{lifecycleStages.length} events visible
+            </strong>
+          </div>
+          <div>
+            <span>Explorer status</span>
+            <strong>Polygon Amoy placeholders</strong>
+          </div>
+        </div>
+        {!evidenceVisible ? (
+          <button
+            className="secondary-action inline-action"
+            onClick={() => onStageSelect("evidence-published")}
+            type="button"
+          >
+            <ArrowRight size={17} />
+            Show published evidence
+          </button>
+        ) : null}
+      </div>
+
+      <div className="panel wide">
+        <div className="panel-heading">
+          <div>
+            <p>Event evidence</p>
+            <h2>Verification timeline</h2>
+          </div>
+          <span className="state-tag open">{currentStage.label}</span>
+        </div>
+        <div className="progress-track fairness-progress" aria-label="Fairness evidence progress">
+          <span style={{ width: `${progressPercent}%` }} />
+        </div>
+        <ol className="fairness-path" aria-label="Fairness evidence timeline">
+          {fairnessEvidencePath.map((item) => {
+            const Icon = item.icon;
+            const stageIndex = lifecycleStages.findIndex((stage) => stage.id === item.stageId);
+            const timelineEvent = lifecycleStages[stageIndex];
+            const isComplete = stageIndex < currentStageIndex || evidenceVisible;
+            const isActive = stageIndex === currentStageIndex && !evidenceVisible;
+            const state = isComplete ? "complete" : isActive ? "active" : "queued";
+
+            return (
+              <li className="fairness-path-step" data-state={state} key={item.title}>
+                <div className="path-icon" aria-hidden="true">
+                  <Icon size={18} />
+                </div>
+                <div>
+                  <span>{timelineEvent?.eventName ?? item.evidenceLabel}</span>
+                  <strong>{item.title}</strong>
+                  <p>{item.detail}</p>
+                  <code>{item.evidenceValue}</code>
+                  <small>{timelineEvent?.timestamp}</small>
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+      </div>
+
+      <div className="panel">
+        <div className="panel-heading compact">
+          <KeyRound size={20} />
+          <h2>Randomness References</h2>
+        </div>
+        <dl className="compact-facts evidence-facts">
+          {randomnessReferences.map((reference) => (
+            <div key={reference.label}>
+              <dt>{reference.label}</dt>
+              <dd>{reference.value}</dd>
+            </div>
+          ))}
+        </dl>
+      </div>
+
+      <div className="panel">
+        <div className="panel-heading compact">
+          <ExternalLink size={20} />
+          <h2>Explorer Placeholders</h2>
+        </div>
+        <div className="explorer-list">
+          {explorerPlaceholders.map((placeholder) => (
+            <div className="explorer-row" key={placeholder.label}>
+              <div>
+                <span>{placeholder.type}</span>
+                <strong>{placeholder.label}</strong>
+                <code>{placeholder.target}</code>
+              </div>
+              <span className="placeholder-link">
+                <Link2 size={15} />
+                Future link
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="panel wide">
+        <div className="panel-heading">
+          <div>
+            <p>Deterministic derivation</p>
+            <h2>Result walkthrough</h2>
+          </div>
+          <span
+            className={
+              currentStageIndex >= publishedStageIndex ? "state-tag open" : "state-tag muted"
+            }
+          >
+            {currentStageIndex >= publishedStageIndex ? "Digest ready" : "Mock preview"}
+          </span>
+        </div>
+        <div className="walkthrough-list">
+          {derivationWalkthrough.map((step) => (
+            <div className="walkthrough-step" key={step.step}>
+              <span>{step.step}</span>
+              <div>
+                <strong>{step.label}</strong>
+                <p>{step.working}</p>
+                <code>{step.result}</code>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="panel">
+        <div className="panel-heading compact">
+          <ShieldCheck size={20} />
+          <h2>Verification Summary</h2>
+        </div>
+        <div className="summary-list">
+          {protectionSummary.map((summary) => (
+            <div className="summary-row" key={summary.label}>
+              <CheckCircle2 size={18} />
+              <div>
+                <strong>{summary.label}</strong>
+                <p>{summary.detail}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="panel">
+        <div className="panel-heading compact">
+          <Database size={20} />
+          <h2>Replaceable Evidence</h2>
+        </div>
+        <div className="replacement-stack">
+          <div>
+            <Route size={18} />
+            <span>Mock source</span>
+            <strong>frontend static evidence model</strong>
+          </div>
+          <div>
+            <GitBranch size={18} />
+            <span>Future source</span>
+            <strong>backend read model + Polygon Amoy explorer URLs</strong>
+          </div>
+        </div>
+      </div>
+
+      <div className="panel wide">
+        <div className="panel-heading compact">
+          <FileText size={20} />
+          <h2>Evidence Packet</h2>
         </div>
         <table className="evidence-table" aria-label="Verification evidence">
           <tbody>
@@ -660,30 +1008,6 @@ function FairnessDashboardScreen({ isStageVisible }: ScreenProps) {
             ))}
           </tbody>
         </table>
-      </div>
-
-      <div className="panel">
-        <div className="panel-heading compact">
-          <ShieldCheck size={20} />
-          <h2>Checks</h2>
-        </div>
-        <ul className="check-list">
-          <li>Entries locked before randomness request</li>
-          <li>Request reference visible to reviewer</li>
-          <li>Mock randomness words shown before result mapping</li>
-          <li>Result digest matches displayed evidence</li>
-        </ul>
-      </div>
-
-      <div className="panel">
-        <div className="panel-heading compact">
-          <LockKeyhole size={20} />
-          <h2>Scope Guardrails</h2>
-        </div>
-        <p className="body-copy">
-          The dashboard shows public mock identifiers only. It does not collect funds, use private
-          credentials, or represent a production environment.
-        </p>
       </div>
     </section>
   );

@@ -1,0 +1,17 @@
+{
+  "name": "@zodiacchain/contracts",
+  "version": "0.1.0",
+  "description": "Solidity smart contracts for the ZodiacChain testnet MVP.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "hardhat build",
+    "test": "hardhat test",
+    "typecheck": "hardhat build && tsc --noEmit -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox-viem": "^5.0.5",
+    "@nomicfoundation/hardhat-viem-assertions": "^3.0.11",
+    "hardhat": "^3.4.5"
+  }
+}

@@ -99,6 +99,16 @@ export const drawRoutes: FastifyPluginAsync = async (fastify) => {
     return { data: getDrawRandomness(draw.id) ?? null };
   });
 
+  fastify.get<{ Params: DrawParams }>("/draws/:drawId/result", async (request, reply) => {
+    const draw = findDrawById(request.params.drawId);
+
+    if (!draw) {
+      return sendDrawNotFound(reply, request.params.drawId);
+    }
+
+    return { data: getDrawResultDerivation(draw.id) ?? null };
+  });
+
   fastify.get<{ Params: DrawParams }>(
     "/draws/:drawId/result-derivation",
     async (request, reply) => {

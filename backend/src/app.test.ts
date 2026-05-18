@@ -72,17 +72,33 @@ test("draw subresources expose events, randomness, and fairness records", async 
     assert.equal(randomness.statusCode, 200);
     assert.equal(draw.statusCode, 200);
     assert.equal(fairness.statusCode, 200);
+    const eventBody = events.json<{ data: DrawEvent[] }>();
+
     assert.deepEqual(
-      events.json<{ data: DrawEvent[] }>().data.map((event) => event.type),
+      eventBody.data.map((event) => event.type),
       [
-        "draw.opened",
-        "entries.locked",
-        "randomness.requested",
-        "randomness.fulfilled",
-        "results.derived",
-        "evidence.published",
+        "DrawScheduled",
+        "DrawOpened",
+        "BetPlaced",
+        "DrawClosed",
+        "RandomnessRequested",
+        "RandomnessFulfilled",
+        "DrawResolved",
+        "DrawArchived",
       ],
     );
+    assert.equal(eventBody.data[2]?.payload.entryId, "entry-demo-042-reviewer-a17");
+    assert.equal(
+      eventBody.data[2]?.payload.entryHash,
+      "0xe170000000000000000000000000000000000000000000000000000000000042",
+    );
+    assert.equal(eventBody.data[4]?.payload.requestId, "req-demo-2026-05-16-042");
+    assert.equal(eventBody.data[5]?.payload.terrestrialWord, "0x04");
+    assert.equal(eventBody.data[5]?.payload.celestialWord, "0x10");
+    assert.equal(eventBody.data[6]?.payload.terrestrialResult, "04");
+    assert.equal(eventBody.data[6]?.payload.celestialNumber, "17");
+    assert.equal(eventBody.data[6]?.payload.celestialAnimalName, "Dragon");
+    assert.equal(eventBody.data[6]?.payload.celestialElementName, "Fire");
     const randomnessBody = randomness.json<{ data: RandomnessRecord }>();
     const drawBody = draw.json<{
       data: {
@@ -121,6 +137,10 @@ test("draw lifecycle fixtures expose test entry, closing state, lifecycle, and d
       method: "GET",
       url: "/api/v1/draws/AMOY-DEMO-042/lifecycle",
     });
+    const result = await app.inject({
+      method: "GET",
+      url: "/api/v1/draws/AMOY-DEMO-042/result",
+    });
     const derivation = await app.inject({
       method: "GET",
       url: "/api/v1/draws/AMOY-DEMO-042/result-derivation",
@@ -129,11 +149,13 @@ test("draw lifecycle fixtures expose test entry, closing state, lifecycle, and d
     assert.equal(testEntry.statusCode, 200);
     assert.equal(closingState.statusCode, 200);
     assert.equal(lifecycle.statusCode, 200);
+    assert.equal(result.statusCode, 200);
     assert.equal(derivation.statusCode, 200);
 
     const testEntryBody = testEntry.json<{ data: TestEntryFixture }>();
     const closingStateBody = closingState.json<{ data: DrawClosingState }>();
     const lifecycleBody = lifecycle.json<{ data: DrawLifecycleRecord }>();
+    const resultBody = result.json<{ data: ResultDerivationRecord }>();
     const derivationBody = derivation.json<{ data: ResultDerivationRecord }>();
 
     assert.equal(testEntryBody.data.drawId, "AMOY-DEMO-042");
@@ -155,7 +177,13 @@ test("draw lifecycle fixtures expose test entry, closing state, lifecycle, and d
     assert.equal(derivationBody.data.requestId, "req-demo-2026-05-16-042");
     assert.equal(derivationBody.data.source, "mock-result-derivation");
     assert.equal(derivationBody.data.terrestrialResult.displayValue, "04");
+    assert.equal(derivationBody.data.terrestrialResult.value, 4);
+    assert.equal(derivationBody.data.celestialResult.displayValue, "17");
+    assert.equal(derivationBody.data.celestialResult.value, 17);
+    assert.equal(derivationBody.data.celestialResult.animalName, "Dragon");
+    assert.equal(derivationBody.data.celestialResult.elementName, "Fire");
     assert.equal(derivationBody.data.celestialResult.label, "Dragon / Fire");
+    assert.deepEqual(resultBody.data, derivationBody.data);
   });
 });
 
@@ -168,6 +196,7 @@ test("draw endpoints return a consistent 404 payload for unknown draw ids", asyn
       "/api/v1/draws/UNKNOWN/lifecycle",
       "/api/v1/draws/UNKNOWN/events",
       "/api/v1/draws/UNKNOWN/randomness",
+      "/api/v1/draws/UNKNOWN/result",
       "/api/v1/draws/UNKNOWN/result-derivation",
       "/api/v1/draws/UNKNOWN/fairness",
     ];

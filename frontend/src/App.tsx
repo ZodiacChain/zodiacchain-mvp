@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactElement } from "react";
+import { useEffect, useMemo, useState, type ReactElement } from "react";
 import {
   Activity,
   ArrowRight,
@@ -30,13 +30,26 @@ import {
 type ScreenId = "active-draw" | "test-entry" | "lifecycle" | "results" | "fairness-dashboard";
 
 type LifecycleStageId =
-  | "entry-open"
-  | "test-entry-placed"
-  | "entries-locked"
+  | "draw-scheduled"
+  | "draw-opened"
+  | "bet-placed"
+  | "draw-closed"
   | "randomness-requested"
   | "randomness-fulfilled"
-  | "results-derived"
-  | "evidence-published";
+  | "draw-resolved"
+  | "draw-archived";
+
+type CanonicalEventName =
+  | "DrawScheduled"
+  | "DrawOpened"
+  | "BetPlaced"
+  | "BetRejected"
+  | "DrawClosed"
+  | "RandomnessRequested"
+  | "RandomnessFulfilled"
+  | "DrawResolved"
+  | "BetSettled"
+  | "DrawArchived";
 
 type ScreenMeta = {
   id: ScreenId;
@@ -52,13 +65,142 @@ type LifecycleStage = {
   detail: string;
   evidenceLabel: string;
   evidenceValue: string;
-  eventName: string;
+  eventName: CanonicalEventName;
   timestamp: string;
+};
+
+type TerrestrialResult = {
+  animalId: number;
+  displayValue: string;
+  value: number;
+};
+
+type CelestialResult = {
+  animalId: number;
+  animalName: string;
+  displayValue: string;
+  elementId: number;
+  elementName: string;
+  label: string;
+  value: number;
+};
+
+type DrawDetail = {
+  celestialResult: CelestialResult | null;
+  contractAddress: string;
+  demoOnly: boolean;
+  entriesCount: number;
+  entryWindow: {
+    closesAt: string;
+    opensAt: string;
+  };
+  evidence: Array<{ label: string; value: string }>;
+  id: string;
+  maxEntries: number;
+  network: string;
+  status: string;
+  terrestrialResult: TerrestrialResult | null;
+  title: string;
+};
+
+type TestEntryFixture = {
+  accepted: boolean;
+  demoOnly: true;
+  drawId: string;
+  entryHash: string;
+  entryId: string;
+  entriesCountAfterPlacement: number;
+  label: string;
+  network: string;
+  placedAt: string;
+  selectedNumbers: string[];
+  transactionHash: string | null;
+  walletAddress: string;
+  zodiacSign: string;
+};
+
+type RandomnessRecord = {
+  callbackTransactionHash: string | null;
+  fulfilledAt: string | null;
+  provider: string;
+  randomWords: {
+    celestial: string;
+    terrestrial: string;
+  };
+  requestId: string;
+  requestedAt: string;
+  seedDigest: string;
+  value: string | null;
+};
+
+type ResultDerivationRecord = {
+  celestialResult: CelestialResult;
+  derivedAt: string;
+  demoOnly: true;
+  drawId: string;
+  randomWords: RandomnessRecord["randomWords"];
+  requestId: string;
+  resultDigest: string;
+  source: string;
+  terrestrialResult: TerrestrialResult;
+};
+
+type FairnessRecord = {
+  checks: Array<{
+    detail: string;
+    label: string;
+    passed: boolean;
+  }>;
+  drawId: string;
+  entryRoot: string;
+  publicNotes: string;
+  resultDigest: string;
+  verificationUrl: string | null;
+};
+
+type DrawEvent = {
+  blockNumber: number | null;
+  drawId: string;
+  id: string;
+  occurredAt: string;
+  payload: Record<string, unknown>;
+  transactionHash: string | null;
+  type: CanonicalEventName;
+};
+
+type DemoData = {
+  derivationWalkthrough: Array<{ label: string; result: string; step: string; working: string }>;
+  draw: DrawDetail;
+  events: DrawEvent[];
+  evidenceRows: Array<{ label: string; value: string }>;
+  explorerPlaceholders: Array<{ label: string; target: string; type: string }>;
+  fairness: FairnessRecord;
+  fairnessEvidencePath: Array<{
+    detail: string;
+    evidenceLabel: string;
+    evidenceValue: string;
+    icon: LucideIcon;
+    stageId: LifecycleStageId;
+    title: string;
+  }>;
+  lifecycleStages: LifecycleStage[];
+  protectionSummary: Array<{ detail: string; label: string; passed: boolean }>;
+  randomness: RandomnessRecord;
+  randomnessReferences: Array<{ label: string; value: string }>;
+  result: ResultDerivationRecord;
+  resultSummary: string;
+  source: "backend" | "fallback";
+  testEntry: TestEntryFixture;
+};
+
+type ApiEnvelope<T> = {
+  data: T;
 };
 
 type ScreenProps = {
   currentStage: LifecycleStage;
   currentStageIndex: number;
+  demoData: DemoData;
   isStageVisible: (stageId: LifecycleStageId) => boolean;
   onAdvance: () => void;
   onReset: () => void;
@@ -66,6 +208,8 @@ type ScreenProps = {
 };
 
 type ScreenComponent = (props: ScreenProps) => ReactElement;
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:4000/api/v1";
 
 const screenMeta: Record<ScreenId, ScreenMeta> = {
   "active-draw": {
@@ -107,269 +251,231 @@ const screenMeta: Record<ScreenId, ScreenMeta> = {
 
 const screens = Object.values(screenMeta);
 
-const demoDraw = {
-  celestialResult: "Virgo Ascendant",
-  closesAt: "2026-05-17 18:00 UTC",
+const fallbackDraw: DrawDetail = {
+  celestialResult: {
+    animalId: 5,
+    animalName: "Dragon",
+    displayValue: "17",
+    elementId: 2,
+    elementName: "Fire",
+    label: "Dragon / Fire",
+    value: 17,
+  },
   contractAddress: "0x0000000000000000000000000000000000000042",
-  drawId: "AMOY-DEMO-042",
+  demoOnly: true,
   entriesCount: 128,
-  entryRoot: "0x7c1e00000000000000000000000000000000000000000000000000000000a90d",
+  entryWindow: {
+    closesAt: "2026-05-17T18:00:00.000Z",
+    opensAt: "2026-05-16T18:00:00.000Z",
+  },
+  evidence: [
+    { label: "Chain", value: "Polygon Amoy Testnet" },
+    { label: "Draw contract", value: "0x0000000000000000000000000000000000000042" },
+    { label: "VRF request", value: "req-demo-2026-05-16-042" },
+    {
+      label: "Entry root",
+      value: "0x7c1e00000000000000000000000000000000000000000000000000000000a90d",
+    },
+    {
+      label: "Result digest",
+      value: "0xf3a80000000000000000000000000000000000000000000000000000000022c1",
+    },
+    { label: "Terrestrial word", value: "0x04" },
+    { label: "Celestial word", value: "0x10" },
+  ],
+  id: "AMOY-DEMO-042",
   maxEntries: 500,
-  network: "Polygon Amoy Testnet",
-  opensAt: "2026-05-16 18:00 UTC",
-  resultDigest: "0xf3a80000000000000000000000000000000000000000000000000000000022c1",
-  seedDigest: "0x9a420000000000000000000000000000000000000000000000000000000018ef",
-  terrestrialResult: "04, 11, 16, 23, 35",
+  network: "Polygon Amoy",
+  status: "entry_open",
+  terrestrialResult: {
+    animalId: 2,
+    displayValue: "04",
+    value: 4,
+  },
   title: "Reviewer test draw",
 };
 
-const testEntry = {
+const fallbackTestEntry: TestEntryFixture = {
   accepted: true,
+  demoOnly: true,
+  drawId: fallbackDraw.id,
   entryHash: "0xe170000000000000000000000000000000000000000000000000000000000042",
   entryId: "entry-demo-042-reviewer-a17",
+  entriesCountAfterPlacement: 128,
   label: "Reviewer Ticket A-17",
-  placedAt: "2026-05-16 18:03 UTC",
+  network: "Polygon Amoy",
+  placedAt: "2026-05-16T18:03:00.000Z",
   selectedNumbers: ["04", "11", "16", "23", "35"],
+  transactionHash: null,
   walletAddress: "0x0000000000000000000000000000000000000E17",
   zodiacSign: "Virgo",
 };
 
-const randomness = {
+const fallbackRandomness: RandomnessRecord = {
   callbackTransactionHash: "0x0000000000000000000000000000000000000000000000000000000000042012",
-  fulfilledAt: "2026-05-16 18:12 UTC",
+  fulfilledAt: "2026-05-16T18:12:00.000Z",
   provider: "Chainlink VRF mock",
-  requestId: "req-demo-2026-05-16-042",
-  requestedAt: "2026-05-16 18:10 UTC",
-  words: {
+  randomWords: {
     celestial: "0x10",
     terrestrial: "0x04",
   },
+  requestId: "req-demo-2026-05-16-042",
+  requestedAt: "2026-05-16T18:10:00.000Z",
+  seedDigest: "0x9a420000000000000000000000000000000000000000000000000000000018ef",
+  value: "0x10",
 };
 
-const lifecycleStages: LifecycleStage[] = [
-  {
-    id: "entry-open",
-    label: "Opened",
-    detail: "Test draw announced for reviewer validation.",
-    evidenceLabel: "Draw ID",
-    evidenceValue: demoDraw.drawId,
-    eventName: "draw.opened",
-    timestamp: "2026-05-16 18:00 UTC",
-  },
-  {
-    id: "test-entry-placed",
-    label: "Test Entry",
-    detail: "Reviewer sample entry is accepted into the mock entry set.",
-    evidenceLabel: "Entry ID",
-    evidenceValue: testEntry.entryId,
-    eventName: "test.entry.accepted",
-    timestamp: testEntry.placedAt,
-  },
-  {
-    id: "entries-locked",
-    label: "Locked",
-    detail: "Entry list is frozen before randomness is requested.",
-    evidenceLabel: "Entry root",
-    evidenceValue: demoDraw.entryRoot,
-    eventName: "entries.locked",
-    timestamp: "2026-05-16 18:05 UTC",
-  },
-  {
-    id: "randomness-requested",
-    label: "Requested",
-    detail: "Mock Chainlink VRF request reference is prepared.",
-    evidenceLabel: "Request ID",
-    evidenceValue: randomness.requestId,
-    eventName: "randomness.requested",
-    timestamp: randomness.requestedAt,
-  },
-  {
-    id: "randomness-fulfilled",
-    label: "Fulfilled",
-    detail: "Mock randomness words are captured for deterministic mapping.",
-    evidenceLabel: "Callback transaction",
-    evidenceValue: randomness.callbackTransactionHash,
-    eventName: "randomness.fulfilled",
-    timestamp: randomness.fulfilledAt,
-  },
-  {
-    id: "results-derived",
-    label: "Derived",
-    detail: "Results are mapped from the mock randomness words.",
-    evidenceLabel: "Result digest",
-    evidenceValue: demoDraw.resultDigest,
-    eventName: "results.derived",
-    timestamp: "2026-05-16 18:13 UTC",
-  },
-  {
-    id: "evidence-published",
-    label: "Published",
-    detail: "Evidence is available for reviewer checks.",
-    evidenceLabel: "Evidence event",
-    evidenceValue: "evt-demo-042-evidence-published",
-    eventName: "evidence.published",
-    timestamp: "2026-05-16 18:15 UTC",
-  },
-];
+const fallbackResult: ResultDerivationRecord = {
+  celestialResult: fallbackDraw.celestialResult!,
+  derivedAt: "2026-05-16T18:13:00.000Z",
+  demoOnly: true,
+  drawId: fallbackDraw.id,
+  randomWords: fallbackRandomness.randomWords,
+  requestId: fallbackRandomness.requestId,
+  resultDigest: "0xf3a80000000000000000000000000000000000000000000000000000000022c1",
+  source: "mock-result-derivation",
+  terrestrialResult: fallbackDraw.terrestrialResult!,
+};
 
-const evidenceRows = [
-  { label: "Chain", value: demoDraw.network },
-  { label: "Draw ID", value: demoDraw.drawId },
-  { label: "Draw contract", value: demoDraw.contractAddress },
-  { label: "Entry ID", value: testEntry.entryId },
-  { label: "Entry hash", value: testEntry.entryHash },
-  { label: "Entry root", value: demoDraw.entryRoot },
-  { label: "VRF request", value: randomness.requestId },
-  { label: "Callback transaction", value: randomness.callbackTransactionHash },
-  { label: "Result digest", value: demoDraw.resultDigest },
-];
+const fallbackFairness: FairnessRecord = {
+  checks: [
+    {
+      detail: "Mock entries are represented by a deterministic root, not private user data.",
+      label: "Entries locked before randomness",
+      passed: true,
+    },
+    {
+      detail: "Request ID and fulfillment are displayed as separate evidence points.",
+      label: "VRF request and fulfillment linked",
+      passed: true,
+    },
+    {
+      detail: "The official result can be recomputed from the displayed random words.",
+      label: "Deterministic result derivation",
+      passed: true,
+    },
+  ],
+  drawId: fallbackDraw.id,
+  entryRoot: "0x7c1e00000000000000000000000000000000000000000000000000000000a90d",
+  publicNotes:
+    "Demo-only fairness record for frontend and reviewer validation. No secrets, private credentials, or production treasury data are included.",
+  resultDigest: fallbackResult.resultDigest,
+  verificationUrl: null,
+};
 
-const fairnessEvidencePath = [
+const fallbackEvents: DrawEvent[] = [
   {
-    detail: "Draw metadata and entry window are visible before any randomness is requested.",
-    evidenceLabel: "Draw contract",
-    evidenceValue: demoDraw.contractAddress,
-    icon: Activity,
-    stageId: "entry-open",
-    title: "Draw opened",
+    blockNumber: 8420995,
+    drawId: fallbackDraw.id,
+    id: "evt-demo-042-draw-scheduled",
+    occurredAt: "2026-05-16T17:55:00.000Z",
+    payload: {
+      closesAt: fallbackDraw.entryWindow.closesAt,
+      drawId: fallbackDraw.id,
+      opensAt: fallbackDraw.entryWindow.opensAt,
+    },
+    transactionHash: "0x0000000000000000000000000000000000000000000000000000000000041995",
+    type: "DrawScheduled",
   },
   {
-    detail: "Reviewer sample entry creates the accepted hash that becomes part of the entry root.",
-    evidenceLabel: "Entry hash",
-    evidenceValue: testEntry.entryHash,
-    icon: TicketCheck,
-    stageId: "test-entry-placed",
-    title: "Test entry accepted",
+    blockNumber: 8421001,
+    drawId: fallbackDraw.id,
+    id: "evt-demo-042-draw-opened",
+    occurredAt: "2026-05-16T18:00:00.000Z",
+    payload: {
+      drawId: fallbackDraw.id,
+      entriesCount: 0,
+      network: fallbackDraw.network,
+    },
+    transactionHash: "0x0000000000000000000000000000000000000000000000000000000000042001",
+    type: "DrawOpened",
   },
   {
-    detail: "Accepted entries are frozen into a deterministic root before the request event.",
-    evidenceLabel: "Entry root",
-    evidenceValue: demoDraw.entryRoot,
-    icon: LockKeyhole,
-    stageId: "entries-locked",
-    title: "Entries locked",
+    blockNumber: 8421003,
+    drawId: fallbackDraw.id,
+    id: "evt-demo-042-bet-placed",
+    occurredAt: fallbackTestEntry.placedAt,
+    payload: {
+      drawId: fallbackDraw.id,
+      entryHash: fallbackTestEntry.entryHash,
+      entryId: fallbackTestEntry.entryId,
+      player: fallbackTestEntry.walletAddress,
+      selectedNumbers: fallbackTestEntry.selectedNumbers,
+    },
+    transactionHash: null,
+    type: "BetPlaced",
   },
   {
-    detail: "The randomness request reference becomes the anchor for the future VRF transaction.",
-    evidenceLabel: "Request ID",
-    evidenceValue: randomness.requestId,
-    icon: KeyRound,
-    stageId: "randomness-requested",
-    title: "Randomness requested",
+    blockNumber: 8421005,
+    drawId: fallbackDraw.id,
+    id: "evt-demo-042-draw-closed",
+    occurredAt: "2026-05-16T18:05:00.000Z",
+    payload: {
+      drawId: fallbackDraw.id,
+      entriesCount: fallbackDraw.entriesCount,
+      entryRoot: fallbackFairness.entryRoot,
+    },
+    transactionHash: "0x0000000000000000000000000000000000000000000000000000000000042005",
+    type: "DrawClosed",
   },
   {
-    detail: "Fulfillment captures callback transaction and the mock random words used by the demo.",
-    evidenceLabel: "Callback transaction",
-    evidenceValue: randomness.callbackTransactionHash,
-    icon: Fingerprint,
-    stageId: "randomness-fulfilled",
-    title: "Randomness fulfilled",
+    blockNumber: 8421006,
+    drawId: fallbackDraw.id,
+    id: "evt-demo-042-randomness-requested",
+    occurredAt: fallbackRandomness.requestedAt,
+    payload: {
+      drawId: fallbackDraw.id,
+      provider: fallbackRandomness.provider,
+      requestId: fallbackRandomness.requestId,
+    },
+    transactionHash: "0x0000000000000000000000000000000000000000000000000000000000042006",
+    type: "RandomnessRequested",
   },
   {
-    detail: "Mock random words are mapped through the deterministic derivation rules.",
-    evidenceLabel: "Derived output",
-    evidenceValue: `${demoDraw.terrestrialResult} / ${demoDraw.celestialResult}`,
-    icon: ListChecks,
-    stageId: "results-derived",
-    title: "Results derived",
+    blockNumber: 8421012,
+    drawId: fallbackDraw.id,
+    id: "evt-demo-042-randomness-fulfilled",
+    occurredAt: fallbackRandomness.fulfilledAt ?? fallbackRandomness.requestedAt,
+    payload: {
+      celestialWord: fallbackRandomness.randomWords.celestial,
+      drawId: fallbackDraw.id,
+      requestId: fallbackRandomness.requestId,
+      terrestrialWord: fallbackRandomness.randomWords.terrestrial,
+    },
+    transactionHash: fallbackRandomness.callbackTransactionHash,
+    type: "RandomnessFulfilled",
   },
   {
-    detail:
-      "The published digest ties draw ID, entry root, request reference, and results together.",
-    evidenceLabel: "Result digest",
-    evidenceValue: demoDraw.resultDigest,
-    icon: ShieldCheck,
-    stageId: "evidence-published",
-    title: "Evidence published",
-  },
-] satisfies Array<{
-  detail: string;
-  evidenceLabel: string;
-  evidenceValue: string;
-  icon: LucideIcon;
-  stageId: LifecycleStageId;
-  title: string;
-}>;
-
-const randomnessReferences = [
-  { label: "Provider", value: randomness.provider },
-  { label: "Request ID", value: randomness.requestId },
-  { label: "Requested at", value: randomness.requestedAt },
-  { label: "Fulfilled at", value: randomness.fulfilledAt },
-  { label: "Callback transaction", value: randomness.callbackTransactionHash },
-  { label: "Seed digest", value: demoDraw.seedDigest },
-  { label: "Terrestrial word", value: randomness.words.terrestrial },
-  { label: "Celestial word", value: randomness.words.celestial },
-];
-
-const derivationWalkthrough = [
-  {
-    label: "Freeze accepted entries",
-    result: demoDraw.entryRoot,
-    step: "01",
-    working: "entryRoot = hash(sorted accepted mock entries)",
+    blockNumber: null,
+    drawId: fallbackDraw.id,
+    id: "evt-demo-042-draw-resolved",
+    occurredAt: fallbackResult.derivedAt,
+    payload: {
+      celestialAnimalId: fallbackResult.celestialResult.animalId,
+      celestialAnimalName: fallbackResult.celestialResult.animalName,
+      celestialElementId: fallbackResult.celestialResult.elementId,
+      celestialElementName: fallbackResult.celestialResult.elementName,
+      celestialNumber: fallbackResult.celestialResult.displayValue,
+      drawId: fallbackDraw.id,
+      resultDigest: fallbackResult.resultDigest,
+      terrestrialAnimalId: fallbackResult.terrestrialResult.animalId,
+      terrestrialResult: fallbackResult.terrestrialResult.displayValue,
+    },
+    transactionHash: null,
+    type: "DrawResolved",
   },
   {
-    label: "Bind request to seed",
-    result: `${randomness.requestId} + ${demoDraw.seedDigest}`,
-    step: "02",
-    working: "seed = request reference + fulfilled random words",
-  },
-  {
-    label: "Map terrestrial output",
-    result: demoDraw.terrestrialResult,
-    step: "03",
-    working: `${randomness.words.terrestrial} maps to ${demoDraw.terrestrialResult}`,
-  },
-  {
-    label: "Map celestial output",
-    result: demoDraw.celestialResult,
-    step: "04",
-    working: `${randomness.words.celestial} maps to ${demoDraw.celestialResult}`,
-  },
-  {
-    label: "Publish digest",
-    result: demoDraw.resultDigest,
-    step: "05",
-    working: "digest = hash(drawId + entryRoot + requestId + derived results)",
-  },
-];
-
-const explorerPlaceholders = [
-  {
-    label: "Draw contract",
-    target: demoDraw.contractAddress,
-    type: "Polygon Amoy address",
-  },
-  {
-    label: "Request transaction",
-    target: "0x0000000000000000000000000000000000000000000000000000000000042006",
-    type: "Polygon Amoy transaction",
-  },
-  {
-    label: "Callback transaction",
-    target: randomness.callbackTransactionHash,
-    type: "Polygon Amoy transaction",
-  },
-  {
-    label: "Published evidence",
-    target: "evt-demo-042-evidence-published",
-    type: "Future explorer event anchor",
-  },
-];
-
-const protectionSummary = [
-  {
-    detail: "Entry root is recorded before randomness can influence the accepted entry set.",
-    label: "Pre-request entry lock",
-  },
-  {
-    detail: "Request ID and callback transaction are displayed as separate evidence points.",
-    label: "Request and fulfillment split",
-  },
-  {
-    detail: "Result digest can be recomputed from public mock inputs during the demo.",
-    label: "Deterministic recomputation",
+    blockNumber: null,
+    drawId: fallbackDraw.id,
+    id: "evt-demo-042-draw-archived",
+    occurredAt: "2026-05-16T18:15:00.000Z",
+    payload: {
+      drawId: fallbackDraw.id,
+      entryRoot: fallbackFairness.entryRoot,
+      resultDigest: fallbackResult.resultDigest,
+    },
+    transactionHash: null,
+    type: "DrawArchived",
   },
 ];
 
@@ -381,17 +487,66 @@ const screenComponents: Record<ScreenId, ScreenComponent> = {
   "fairness-dashboard": FairnessDashboardScreen,
 };
 
+const fallbackDemoData = buildDemoData({
+  draw: fallbackDraw,
+  events: fallbackEvents,
+  fairness: fallbackFairness,
+  randomness: fallbackRandomness,
+  result: fallbackResult,
+  source: "fallback",
+  testEntry: fallbackTestEntry,
+});
+
 function App() {
   const [activeScreen, setActiveScreen] = useState<ScreenId>("active-draw");
-  const [currentStageId, setCurrentStageId] = useState<LifecycleStageId>("entry-open");
+  const [currentStageId, setCurrentStageId] = useState<LifecycleStageId>("draw-opened");
+  const [demoData, setDemoData] = useState<DemoData>(fallbackDemoData);
+  const [dataStatus, setDataStatus] = useState<"loading" | "backend" | "fallback">("loading");
   const activeMeta = screenMeta[activeScreen];
   const ActiveScreen = screenComponents[activeScreen];
+  const lifecycleStages = demoData.lifecycleStages;
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    async function load() {
+      try {
+        const loadedDemoData = await loadDemoData();
+
+        if (!isCancelled) {
+          setDemoData(loadedDemoData);
+          setDataStatus("backend");
+        }
+      } catch {
+        if (!isCancelled) {
+          setDemoData(fallbackDemoData);
+          setDataStatus("fallback");
+        }
+      }
+    }
+
+    void load();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
 
   const currentStageIndex = useMemo(
-    () => lifecycleStages.findIndex((stage) => stage.id === currentStageId),
-    [currentStageId],
+    () =>
+      Math.max(
+        0,
+        lifecycleStages.findIndex((stage) => stage.id === currentStageId),
+      ),
+    [currentStageId, lifecycleStages],
   );
   const currentStage = lifecycleStages[currentStageIndex] ?? lifecycleStages[0]!;
+  const sourceLabel =
+    dataStatus === "loading"
+      ? "Loading mock API"
+      : demoData.source === "backend"
+        ? "Backend mock API"
+        : "Canonical demo fallback";
 
   function isStageVisible(stageId: LifecycleStageId) {
     return lifecycleStages.findIndex((stage) => stage.id === stageId) <= currentStageIndex;
@@ -445,7 +600,7 @@ function App() {
         <section className="notice" aria-label="Testnet scope">
           <FlaskConical size={18} />
           <span>
-            Testnet MVP demo only. Polygon Amoy mock data for reviewer validation. No public
+            Testnet MVP demo only. Polygon Amoy mock evidence for reviewer validation. No public
             participation or value-bearing activity.
           </span>
         </section>
@@ -457,13 +612,14 @@ function App() {
           </div>
           <div className="status-pill">
             <BadgeCheck size={16} />
-            Testnet visible
+            {sourceLabel}
           </div>
         </header>
 
         <ActiveScreen
           currentStage={currentStage}
           currentStageIndex={currentStageIndex}
+          demoData={demoData}
           isStageVisible={isStageVisible}
           onAdvance={handleAdvance}
           onReset={handleReset}
@@ -474,14 +630,22 @@ function App() {
   );
 }
 
-function ActiveDrawScreen({ currentStage, currentStageIndex, onAdvance, onReset }: ScreenProps) {
+function ActiveDrawScreen({
+  currentStage,
+  currentStageIndex,
+  demoData,
+  isStageVisible,
+  onAdvance,
+  onReset,
+}: ScreenProps) {
+  const { draw, lifecycleStages, randomness, testEntry } = demoData;
   const progressLabel = `${currentStageIndex + 1} of ${lifecycleStages.length}`;
   const isFinalStage = currentStageIndex === lifecycleStages.length - 1;
 
   const drawMetrics = [
-    { label: "Draw ID", value: demoDraw.drawId },
-    { label: "Network", value: demoDraw.network },
-    { label: "Entries", value: `${demoDraw.entriesCount} / ${demoDraw.maxEntries} mock` },
+    { label: "Draw ID", value: draw.id },
+    { label: "Network", value: draw.network },
+    { label: "Entries", value: `${draw.entriesCount} / ${draw.maxEntries} mock` },
     { label: "Current state", value: currentStage.label },
   ];
 
@@ -491,7 +655,7 @@ function ActiveDrawScreen({ currentStage, currentStageIndex, onAdvance, onReset 
         <div className="panel-heading">
           <div>
             <p>Current draw</p>
-            <h2>{demoDraw.title}</h2>
+            <h2>{draw.title}</h2>
           </div>
           <span className="state-tag open">Demo active</span>
         </div>
@@ -550,12 +714,16 @@ function ActiveDrawScreen({ currentStage, currentStageIndex, onAdvance, onReset 
         </div>
         <div className="readiness-list">
           <span>Entry capture</span>
-          <strong>{currentStageIndex >= 1 ? "Entry visible" : "Awaiting reviewer step"}</strong>
+          <strong>
+            {isStageVisible("bet-placed") ? "BetPlaced visible" : "Awaiting reviewer step"}
+          </strong>
           <span>Lock policy</span>
-          <strong>{currentStageIndex >= 2 ? "Entry root published" : "Open in demo"}</strong>
+          <strong>{isStageVisible("draw-closed") ? "DrawClosed published" : "Open in demo"}</strong>
           <span>Randomness</span>
           <strong>
-            {currentStageIndex >= 4 ? "Mock words fulfilled" : "Pending request path"}
+            {isStageVisible("randomness-fulfilled")
+              ? "Mock words fulfilled"
+              : "Pending request path"}
           </strong>
         </div>
       </div>
@@ -584,8 +752,9 @@ function ActiveDrawScreen({ currentStage, currentStageIndex, onAdvance, onReset 
   );
 }
 
-function TestEntryScreen({ currentStageIndex, isStageVisible, onAdvance }: ScreenProps) {
-  const entryVisible = isStageVisible("test-entry-placed");
+function TestEntryScreen({ currentStageIndex, demoData, isStageVisible, onAdvance }: ScreenProps) {
+  const { testEntry } = demoData;
+  const entryVisible = isStageVisible("bet-placed");
 
   return (
     <section className="screen-grid">
@@ -596,7 +765,7 @@ function TestEntryScreen({ currentStageIndex, isStageVisible, onAdvance }: Scree
             <h2>Test entry simulation</h2>
           </div>
           <span className={entryVisible ? "state-tag open" : "state-tag muted"}>
-            {entryVisible ? "Accepted" : "Ready"}
+            {entryVisible ? "BetPlaced" : "Ready"}
           </span>
         </div>
         <div className="ticket-preview">
@@ -605,7 +774,7 @@ function TestEntryScreen({ currentStageIndex, isStageVisible, onAdvance }: Scree
             <strong>{testEntry.label}</strong>
           </div>
           <div>
-            <span>Numbers</span>
+            <span>Selected numbers</span>
             <strong>{testEntry.selectedNumbers.join(" ")}</strong>
           </div>
           <div>
@@ -642,10 +811,10 @@ function TestEntryScreen({ currentStageIndex, isStageVisible, onAdvance }: Scree
           <h2>Simulation State</h2>
         </div>
         <p className="body-copy">
-          This is a frontend-only reviewer interaction. It places no live transaction and only
-          advances the mock lifecycle shown in this workspace.
+          This is a reviewer test entry. Selected numbers are entry data only; official results are
+          derived later from the randomness words.
         </p>
-        {currentStageIndex === 0 ? (
+        {currentStageIndex < 2 ? (
           <button className="secondary-action" onClick={onAdvance} type="button">
             <ArrowRight size={17} />
             Place test entry
@@ -653,7 +822,7 @@ function TestEntryScreen({ currentStageIndex, isStageVisible, onAdvance }: Scree
         ) : (
           <div className="success-callout">
             <CheckCircle2 size={18} />
-            Entry accepted at {testEntry.placedAt}
+            BetPlaced at {formatTimestamp(testEntry.placedAt)}
           </div>
         )}
       </div>
@@ -661,7 +830,9 @@ function TestEntryScreen({ currentStageIndex, isStageVisible, onAdvance }: Scree
   );
 }
 
-function LifecycleScreen({ currentStageIndex, onStageSelect }: ScreenProps) {
+function LifecycleScreen({ currentStageIndex, demoData, onStageSelect }: ScreenProps) {
+  const { lifecycleStages } = demoData;
+
   return (
     <section className="screen-grid">
       <div className="panel wide">
@@ -725,8 +896,9 @@ function LifecycleScreen({ currentStageIndex, onStageSelect }: ScreenProps) {
   );
 }
 
-function ResultsScreen({ isStageVisible }: ScreenProps) {
-  const resultsVisible = isStageVisible("results-derived");
+function ResultsScreen({ demoData, isStageVisible }: ScreenProps) {
+  const { randomness, result } = demoData;
+  const resultsVisible = isStageVisible("draw-resolved");
 
   return (
     <section className="screen-grid">
@@ -736,8 +908,8 @@ function ResultsScreen({ isStageVisible }: ScreenProps) {
           <h2>Terrestrial Result</h2>
         </div>
         <div className="result-callout">
-          <span>{resultsVisible ? "Mock draw output" : "Awaiting derivation"}</span>
-          <strong>{resultsVisible ? demoDraw.terrestrialResult : "Pending"}</strong>
+          <span>{resultsVisible ? "Official derived result" : "Awaiting derivation"}</span>
+          <strong>{resultsVisible ? result.terrestrialResult.displayValue : "Pending"}</strong>
         </div>
       </div>
 
@@ -747,8 +919,12 @@ function ResultsScreen({ isStageVisible }: ScreenProps) {
           <h2>Celestial Result</h2>
         </div>
         <div className="result-callout accent">
-          <span>{resultsVisible ? "Deterministic mapping" : "Awaiting randomness"}</span>
-          <strong>{resultsVisible ? demoDraw.celestialResult : "Pending"}</strong>
+          <span>{resultsVisible ? "Celestial number and mapping" : "Awaiting randomness"}</span>
+          <strong>
+            {resultsVisible
+              ? `${result.celestialResult.displayValue} - ${result.celestialResult.label}`
+              : "Pending"}
+          </strong>
         </div>
       </div>
 
@@ -758,32 +934,32 @@ function ResultsScreen({ isStageVisible }: ScreenProps) {
             <p>Derivation notes</p>
             <h2>Traceable mapping</h2>
           </div>
-          <span className="state-tag muted">Demo data</span>
+          <span className="state-tag muted">Backend source</span>
         </div>
         <div className="derivation-grid">
           <div>
             <span>Source</span>
-            <strong>mock-result-derivation</strong>
+            <strong>{result.source}</strong>
           </div>
           <div>
             <span>Request ID</span>
-            <strong>{randomness.requestId}</strong>
+            <strong>{result.requestId}</strong>
           </div>
           <div>
             <span>Terrestrial word</span>
-            <strong>{randomness.words.terrestrial}</strong>
+            <strong>{randomness.randomWords.terrestrial}</strong>
           </div>
           <div>
             <span>Celestial word</span>
-            <strong>{randomness.words.celestial}</strong>
+            <strong>{randomness.randomWords.celestial}</strong>
           </div>
           <div>
             <span>Result digest</span>
-            <strong>{demoDraw.resultDigest}</strong>
+            <strong>{result.resultDigest}</strong>
           </div>
           <div>
             <span>Derived at</span>
-            <strong>2026-05-16 18:13 UTC</strong>
+            <strong>{formatTimestamp(result.derivedAt)}</strong>
           </div>
         </div>
       </div>
@@ -794,13 +970,22 @@ function ResultsScreen({ isStageVisible }: ScreenProps) {
 function FairnessDashboardScreen({
   currentStage,
   currentStageIndex,
+  demoData,
   isStageVisible,
   onStageSelect,
 }: ScreenProps) {
-  const evidenceVisible = isStageVisible("evidence-published");
-  const publishedStageIndex = lifecycleStages.findIndex(
-    (stage) => stage.id === "evidence-published",
-  );
+  const {
+    derivationWalkthrough,
+    draw,
+    evidenceRows,
+    explorerPlaceholders,
+    fairnessEvidencePath,
+    lifecycleStages,
+    protectionSummary,
+    randomnessReferences,
+  } = demoData;
+  const evidenceVisible = isStageVisible("draw-archived");
+  const archivedStageIndex = lifecycleStages.findIndex((stage) => stage.id === "draw-archived");
   const progressPercent = ((currentStageIndex + 1) / lifecycleStages.length) * 100;
 
   return (
@@ -812,19 +997,18 @@ function FairnessDashboardScreen({
             <h2>Fairness evidence path</h2>
           </div>
           <span className={evidenceVisible ? "state-tag open" : "state-tag muted"}>
-            {evidenceVisible ? "Published" : "Pending"}
+            {evidenceVisible ? "Archived" : "Pending"}
           </span>
         </div>
         <p className="body-copy wide-copy">
-          Fairness is verified by following the draw from an immutable entry snapshot, through the
-          randomness request and fulfillment, into a deterministic result digest. These mock values
-          are shaped like the future testnet evidence so the demo can swap sources without changing
-          the reviewer workflow.
+          Fairness is verified by following the draw from locked entries, through the randomness
+          request and fulfillment, into deterministic official results. The dashboard uses the same
+          backend mock records as the result screen.
         </p>
         <div className="fairness-overview-grid">
           <div>
             <span>Draw ID</span>
-            <strong>{demoDraw.drawId}</strong>
+            <strong>{draw.id}</strong>
           </div>
           <div>
             <span>Lifecycle state</span>
@@ -844,11 +1028,11 @@ function FairnessDashboardScreen({
         {!evidenceVisible ? (
           <button
             className="secondary-action inline-action"
-            onClick={() => onStageSelect("evidence-published")}
+            onClick={() => onStageSelect("draw-archived")}
             type="button"
           >
             <ArrowRight size={17} />
-            Show published evidence
+            Show archived evidence
           </button>
         ) : null}
       </div>
@@ -936,10 +1120,10 @@ function FairnessDashboardScreen({
           </div>
           <span
             className={
-              currentStageIndex >= publishedStageIndex ? "state-tag open" : "state-tag muted"
+              currentStageIndex >= archivedStageIndex ? "state-tag open" : "state-tag muted"
             }
           >
-            {currentStageIndex >= publishedStageIndex ? "Digest ready" : "Mock preview"}
+            {currentStageIndex >= archivedStageIndex ? "Digest ready" : "Mock preview"}
           </span>
         </div>
         <div className="walkthrough-list">
@@ -983,7 +1167,11 @@ function FairnessDashboardScreen({
           <div>
             <Route size={18} />
             <span>Mock source</span>
-            <strong>frontend static evidence model</strong>
+            <strong>
+              {demoData.source === "backend"
+                ? "backend mock API records"
+                : "canonical demo fallback"}
+            </strong>
           </div>
           <div>
             <GitBranch size={18} />
@@ -1011,6 +1199,333 @@ function FairnessDashboardScreen({
       </div>
     </section>
   );
+}
+
+async function loadDemoData(): Promise<DemoData> {
+  const activeDraw = await fetchApiData<DrawDetail>("/draws/active");
+  const drawId = encodeURIComponent(activeDraw.id);
+  const [testEntry, events, randomness, result, fairness] = await Promise.all([
+    fetchApiData<TestEntryFixture>(`/draws/${drawId}/test-entry`),
+    fetchApiData<DrawEvent[]>(`/draws/${drawId}/events`),
+    fetchApiData<RandomnessRecord>(`/draws/${drawId}/randomness`),
+    fetchApiData<ResultDerivationRecord>(`/draws/${drawId}/result`),
+    fetchApiData<FairnessRecord>(`/draws/${drawId}/fairness`),
+  ]);
+
+  return buildDemoData({
+    draw: activeDraw,
+    events,
+    fairness,
+    randomness,
+    result,
+    source: "backend",
+    testEntry,
+  });
+}
+
+async function fetchApiData<T>(path: string): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${path}`);
+
+  if (!response.ok) {
+    throw new Error(`Mock API request failed: ${response.status} ${path}`);
+  }
+
+  const body = (await response.json()) as ApiEnvelope<T>;
+  return body.data;
+}
+
+function buildDemoData(input: {
+  draw: DrawDetail;
+  events: DrawEvent[];
+  fairness: FairnessRecord;
+  randomness: RandomnessRecord;
+  result: ResultDerivationRecord;
+  source: DemoData["source"];
+  testEntry: TestEntryFixture;
+}): DemoData {
+  const { draw, events, fairness, randomness, result, source, testEntry } = input;
+  const resultSummary = `Terrestrial ${result.terrestrialResult.displayValue} / Celestial ${result.celestialResult.displayValue} ${result.celestialResult.label}`;
+  const lifecycleStages = buildLifecycleStages({
+    draw,
+    events,
+    fairness,
+    randomness,
+    result,
+    testEntry,
+  });
+  const evidenceRows = [
+    { label: "Chain", value: draw.network },
+    { label: "Draw ID", value: draw.id },
+    { label: "Draw contract", value: draw.contractAddress },
+    { label: "Entry ID", value: testEntry.entryId },
+    { label: "Entry hash", value: testEntry.entryHash },
+    { label: "Entry root", value: fairness.entryRoot },
+    { label: "VRF request", value: randomness.requestId },
+    { label: "Callback transaction", value: randomness.callbackTransactionHash ?? "Pending" },
+    { label: "Terrestrial Result", value: result.terrestrialResult.displayValue },
+    { label: "Celestial Number", value: result.celestialResult.displayValue },
+    { label: "Celestial Mapping", value: result.celestialResult.label },
+    { label: "Result digest", value: result.resultDigest },
+  ];
+  const fairnessEvidencePath = [
+    {
+      detail: "Draw metadata and schedule are visible before entries open.",
+      evidenceLabel: "Draw ID",
+      evidenceValue: draw.id,
+      icon: Activity,
+      stageId: "draw-scheduled",
+      title: "Draw scheduled",
+    },
+    {
+      detail: "Reviewer-facing entry window starts with the canonical DrawOpened event.",
+      evidenceLabel: "Draw contract",
+      evidenceValue: draw.contractAddress,
+      icon: Activity,
+      stageId: "draw-opened",
+      title: "Draw opened",
+    },
+    {
+      detail: "Reviewer sample entry is accepted and kept separate from official results.",
+      evidenceLabel: "Entry hash",
+      evidenceValue: testEntry.entryHash,
+      icon: TicketCheck,
+      stageId: "bet-placed",
+      title: "Bet placed",
+    },
+    {
+      detail: "Accepted entries are frozen into a deterministic root before randomness.",
+      evidenceLabel: "Entry root",
+      evidenceValue: fairness.entryRoot,
+      icon: LockKeyhole,
+      stageId: "draw-closed",
+      title: "Draw closed",
+    },
+    {
+      detail: "The request ID links the closed draw to the future Chainlink VRF evidence.",
+      evidenceLabel: "Request ID",
+      evidenceValue: randomness.requestId,
+      icon: KeyRound,
+      stageId: "randomness-requested",
+      title: "Randomness requested",
+    },
+    {
+      detail: "Fulfillment captures the random words used by deterministic derivation.",
+      evidenceLabel: "Callback transaction",
+      evidenceValue: randomness.callbackTransactionHash ?? "Pending",
+      icon: Fingerprint,
+      stageId: "randomness-fulfilled",
+      title: "Randomness fulfilled",
+    },
+    {
+      detail: "Random words are mapped to the official Terrestrial and Celestial results.",
+      evidenceLabel: "Official output",
+      evidenceValue: resultSummary,
+      icon: ListChecks,
+      stageId: "draw-resolved",
+      title: "Draw resolved",
+    },
+    {
+      detail: "Archived evidence keeps draw ID, entry root, request reference, and results tied.",
+      evidenceLabel: "Result digest",
+      evidenceValue: result.resultDigest,
+      icon: ShieldCheck,
+      stageId: "draw-archived",
+      title: "Draw archived",
+    },
+  ] satisfies DemoData["fairnessEvidencePath"];
+  const randomnessReferences = [
+    { label: "Provider", value: randomness.provider },
+    { label: "Request ID", value: randomness.requestId },
+    { label: "Requested at", value: formatTimestamp(randomness.requestedAt) },
+    { label: "Fulfilled at", value: formatTimestamp(randomness.fulfilledAt) },
+    { label: "Callback transaction", value: randomness.callbackTransactionHash ?? "Pending" },
+    { label: "Seed digest", value: randomness.seedDigest },
+    { label: "Terrestrial word", value: randomness.randomWords.terrestrial },
+    { label: "Celestial word", value: randomness.randomWords.celestial },
+  ];
+  const derivationWalkthrough = [
+    {
+      label: "Freeze accepted entries",
+      result: fairness.entryRoot,
+      step: "01",
+      working: "entryRoot is published by DrawClosed before randomness is requested",
+    },
+    {
+      label: "Bind request to draw",
+      result: `${draw.id} + ${randomness.requestId}`,
+      step: "02",
+      working: "requestId links Chainlink VRF evidence to this draw",
+    },
+    {
+      label: "Map terrestrial output",
+      result: result.terrestrialResult.displayValue,
+      step: "03",
+      working: `${randomness.randomWords.terrestrial} % 100 = ${result.terrestrialResult.displayValue}`,
+    },
+    {
+      label: "Map celestial output",
+      result: `${result.celestialResult.displayValue} ${result.celestialResult.label}`,
+      step: "04",
+      working: `${randomness.randomWords.celestial} maps to ${result.celestialResult.displayValue}, ${result.celestialResult.label}`,
+    },
+    {
+      label: "Publish digest",
+      result: result.resultDigest,
+      step: "05",
+      working: "digest binds drawId, entryRoot, requestId, random words, and official results",
+    },
+  ];
+  const explorerPlaceholders = [
+    {
+      label: "Draw contract",
+      target: draw.contractAddress,
+      type: "Polygon Amoy address",
+    },
+    {
+      label: "Request transaction",
+      target: findEvent(events, "RandomnessRequested")?.transactionHash ?? "0x...",
+      type: "Polygon Amoy transaction",
+    },
+    {
+      label: "Callback transaction",
+      target: randomness.callbackTransactionHash ?? "0x...",
+      type: "Polygon Amoy transaction",
+    },
+    {
+      label: "Archived draw event",
+      target: findEvent(events, "DrawArchived")?.id ?? "DrawArchived",
+      type: "Future explorer event anchor",
+    },
+  ];
+  const protectionSummary = fairness.checks.map((check) => ({
+    detail: check.detail,
+    label: check.label,
+    passed: check.passed,
+  }));
+
+  return {
+    derivationWalkthrough,
+    draw,
+    events,
+    evidenceRows,
+    explorerPlaceholders,
+    fairness,
+    fairnessEvidencePath,
+    lifecycleStages,
+    protectionSummary,
+    randomness,
+    randomnessReferences,
+    result,
+    resultSummary,
+    source,
+    testEntry,
+  };
+}
+
+function buildLifecycleStages(input: {
+  draw: DrawDetail;
+  events: DrawEvent[];
+  fairness: FairnessRecord;
+  randomness: RandomnessRecord;
+  result: ResultDerivationRecord;
+  testEntry: TestEntryFixture;
+}): LifecycleStage[] {
+  const { draw, events, fairness, randomness, result, testEntry } = input;
+
+  return [
+    {
+      id: "draw-scheduled",
+      label: "Scheduled",
+      detail: "Draw schedule is fixed before the reviewer entry window opens.",
+      evidenceLabel: "Draw ID",
+      evidenceValue: draw.id,
+      eventName: "DrawScheduled",
+      timestamp: eventTimestamp(events, "DrawScheduled", draw.entryWindow.opensAt),
+    },
+    {
+      id: "draw-opened",
+      label: "Opened",
+      detail: "The draw starts accepting reviewer test entries.",
+      evidenceLabel: "Draw contract",
+      evidenceValue: draw.contractAddress,
+      eventName: "DrawOpened",
+      timestamp: eventTimestamp(events, "DrawOpened", draw.entryWindow.opensAt),
+    },
+    {
+      id: "bet-placed",
+      label: "Test Entry",
+      detail: "Reviewer sample entry is accepted into the mock entry set.",
+      evidenceLabel: "Entry ID",
+      evidenceValue: testEntry.entryId,
+      eventName: "BetPlaced",
+      timestamp: eventTimestamp(events, "BetPlaced", testEntry.placedAt),
+    },
+    {
+      id: "draw-closed",
+      label: "Closed",
+      detail: "Accepted entries are locked before randomness is requested.",
+      evidenceLabel: "Entry root",
+      evidenceValue: fairness.entryRoot,
+      eventName: "DrawClosed",
+      timestamp: eventTimestamp(events, "DrawClosed", draw.entryWindow.closesAt),
+    },
+    {
+      id: "randomness-requested",
+      label: "Requested",
+      detail: "The request ID links the closed draw to Chainlink VRF evidence.",
+      evidenceLabel: "Request ID",
+      evidenceValue: randomness.requestId,
+      eventName: "RandomnessRequested",
+      timestamp: eventTimestamp(events, "RandomnessRequested", randomness.requestedAt),
+    },
+    {
+      id: "randomness-fulfilled",
+      label: "Fulfilled",
+      detail: "Randomness words are captured for deterministic mapping.",
+      evidenceLabel: "Callback transaction",
+      evidenceValue: randomness.callbackTransactionHash ?? "Pending",
+      eventName: "RandomnessFulfilled",
+      timestamp: eventTimestamp(events, "RandomnessFulfilled", randomness.fulfilledAt),
+    },
+    {
+      id: "draw-resolved",
+      label: "Resolved",
+      detail: "Official results are derived from the displayed random words.",
+      evidenceLabel: "Result digest",
+      evidenceValue: result.resultDigest,
+      eventName: "DrawResolved",
+      timestamp: eventTimestamp(events, "DrawResolved", result.derivedAt),
+    },
+    {
+      id: "draw-archived",
+      label: "Archived",
+      detail: "Resolved draw evidence is archived for dashboard verification.",
+      evidenceLabel: "Result digest",
+      evidenceValue: result.resultDigest,
+      eventName: "DrawArchived",
+      timestamp: eventTimestamp(events, "DrawArchived", result.derivedAt),
+    },
+  ];
+}
+
+function findEvent(events: DrawEvent[], eventName: CanonicalEventName): DrawEvent | undefined {
+  return events.find((event) => event.type === eventName);
+}
+
+function eventTimestamp(
+  events: DrawEvent[],
+  eventName: CanonicalEventName,
+  fallback: string | null,
+): string {
+  return formatTimestamp(findEvent(events, eventName)?.occurredAt ?? fallback);
+}
+
+function formatTimestamp(value: string | null): string {
+  if (!value) {
+    return "Pending";
+  }
+
+  return value.replace("T", " ").replace(".000Z", " UTC");
 }
 
 export default App;

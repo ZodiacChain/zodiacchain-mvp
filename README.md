@@ -98,7 +98,7 @@ npm run typecheck -w @zodiacchain/backend
 
 Use `npm run format` to apply the shared Prettier configuration.
 
-The active npm workspaces are `frontend` and `backend`. Solidity tooling remains intentionally separate until a contracts implementation issue chooses the contract toolchain.
+The active npm workspaces are `frontend`, `backend`, and `contracts`. The contracts workspace contains the Solidity lifecycle implementation and Hardhat-based tests used by the MVP validation flow.
 
 Keep environment secrets local. Private keys, mnemonics, API keys, RPC credentials, and deployment secrets should stay in `.env` files, while safe examples may be committed as `.env.example`.
 

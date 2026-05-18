@@ -53,6 +53,7 @@ npm test -w @zodiacchain/backend
 | GET    | `/api/v1/draws/:drawId/lifecycle`         | Return complete mock lifecycle           |
 | GET    | `/api/v1/draws/:drawId/events`            | Return mock event history                |
 | GET    | `/api/v1/draws/:drawId/randomness`        | Return mock request and fulfillment data |
+| GET    | `/api/v1/draws/:drawId/result`            | Return mock result derivation data       |
 | GET    | `/api/v1/draws/:drawId/result-derivation` | Return mock result derivation data       |
 | GET    | `/api/v1/draws/:drawId/fairness`          | Return fairness dashboard data           |
 

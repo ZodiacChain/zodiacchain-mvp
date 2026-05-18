@@ -75,19 +75,23 @@ export type DrawDetail = DrawSummary & {
 };
 
 export type DrawEventType =
-  | "draw.opened"
-  | "entries.locked"
-  | "randomness.requested"
-  | "randomness.fulfilled"
-  | "results.derived"
-  | "evidence.published";
+  | "DrawScheduled"
+  | "DrawOpened"
+  | "BetPlaced"
+  | "BetRejected"
+  | "DrawClosed"
+  | "RandomnessRequested"
+  | "RandomnessFulfilled"
+  | "DrawResolved"
+  | "BetSettled"
+  | "DrawArchived";
 
 export type DrawEvent = {
   blockNumber: number | null;
   drawId: string;
   id: string;
   occurredAt: string;
-  payload: Record<string, string | number | boolean | null>;
+  payload: Record<string, string | number | boolean | string[] | null>;
   transactionHash: string | null;
   type: DrawEventType;
 };
